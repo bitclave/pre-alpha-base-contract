@@ -1,8 +1,29 @@
 pragma solidity ^0.4.11;
 
+import "./PreCATToken.sol";
+
 
 contract BaseContract {
-    event Transfer(address indexed _from, address indexed _to, uint256 _value);
+    event Transfer(address indexed _from, address indexed _to, uint advertId, uint256 _value);
+
+    event CreateAdvert(
+        address indexed addr,
+        uint advertId,
+        bytes32 argAdvertType,
+        bytes32[] argCategories,
+        bytes32[] argCategoryValues
+    );
+
+    event SearchAdvert(
+        address indexed addr,
+        bytes32 advertType,
+        bytes32[] categories,
+        bytes32[] categoryValues
+    );
+
+    event SaveUserData(address indexed addr, bytes32[] keys, bytes32[] values);
+
+    address constant ADDRESS_CONTRACT_OF_TOKENS = 0xcF6137b80171540a9c6C10D3332E3de5d93B4EF7;
 
     struct Client {
         // need remove this. but, how!?
@@ -29,7 +50,7 @@ contract BaseContract {
     struct Advert {
         uint advertId;
         address offerAddress;
-        uint256 rewardsCoins;
+        uint256 rewardsBufferCoins;
         mapping (bytes32 => bytes32) searchData;
         string url;
         string shortDesc;
@@ -44,7 +65,7 @@ contract BaseContract {
     }
 
     // advertTypes (car/home etc) => struct(second categories (mark, city etc.) => array of id);
-    mapping (bytes32 => SubCategories) rootSearch;
+    mapping (bytes32 => SubCategories) private rootSearch;
 
     // car/home/tv/phones/animals etc.
     bytes32[] private advertTypes;
@@ -55,7 +76,9 @@ contract BaseContract {
 
     mapping (address => Client) private clients;
 
-    ClientInfoKeys clientInfoKeys;
+    ClientInfoKeys private clientInfoKeys;
+
+    PreCATToken private tokenContract = PreCATToken(ADDRESS_CONTRACT_OF_TOKENS);
 
     function BaseContract() {
     }
@@ -78,6 +101,9 @@ contract BaseContract {
     }
 
     function saveUserInfo(bytes32[] keys, bytes32[] values) public {
+        require(msg.sender != 0x0);
+        SaveUserData(msg.sender, keys, values);
+
         mapping(bytes32 => bytes32) info = clients[msg.sender].info;
         for (uint i = 0; i < keys.length; i++)
             info[keys[i]] = values[i];
@@ -85,24 +111,54 @@ contract BaseContract {
 
     function transferUserRewards(uint advertId) public payable returns (uint256) {
         address addr = msg.sender;
+        Client storage client = clients[addr];
+        Advert storage advert = adverts[advertId];
         require(addr != 0x0);
-        require(clients[addr].rewards[advertId] > 0);
-        require(adverts[advertId].rewardsCoins >= clients[addr].rewards[advertId]);
+        require(advert.advertId == advertId);
+        require(client.rewards[advertId] > 0);
+        require(advert.rewardsBufferCoins >= client.rewards[advertId]);
+        require(tokenContract.balanceOf(advert.offerAddress) >= client.rewards[advertId]);
 
-        uint256 reward = clients[addr].rewards[advertId];
-        adverts[advertId].rewardsCoins -= clients[addr].rewards[advertId];
-        clients[addr].rewards[advertId] = 0;
+        uint256 reward = client.rewards[advertId];
+        advert.rewardsBufferCoins -= client.rewards[advertId];
+        client.rewards[advertId] = 0;
 
-        //todo Transfer inside coint like a CAT!?
-        Transfer(adverts[advertId].offerAddress, addr, reward);
+        tokenContract.transfer(addr, reward);
+
+        Transfer(advert.offerAddress, addr, advertId, reward);
 
         return reward;
     }
 
+    function getAdvertBufferCoins(uint advertId) public returns (uint256) {
+        Advert storage advert = adverts[advertId];
+
+        require(advert.advertId > 0);
+        require(msg.sender == advert.offerAddress);
+
+        return advert.rewardsBufferCoins;
+    }
+
+    function setAdvertRewardsBufferCoins(
+        uint advertId,
+        uint256 rewardsBufferCoins
+    )
+        public
+        returns (uint256)
+    {
+        Advert storage advert = adverts[advertId];
+
+        require(msg.sender == advert.offerAddress);
+        require(tokenContract.balanceOf(msg.sender) >= rewardsBufferCoins);
+
+        advert.rewardsBufferCoins = rewardsBufferCoins;
+
+        return advert.rewardsBufferCoins;
+    }
+
     // todo separate to few functions.
-    //todo need to remove coins from the address in advance. (CAT!?)
     function createAdvertInCatalog(
-        uint256 rewardsCoins,
+        uint256 rewardsBufferCoins,
         bytes32 argAdvertType,
         bytes32[] argCategories,
         bytes32[] argCategoryValues,
@@ -117,10 +173,15 @@ contract BaseContract {
         uint8[] rulesWorth
     )
         public
-        returns (uint256)
+        returns (uint)
     {
         require(msg.sender > 0x0);
+        require(rewardsBufferCoins > 0x0);
+        require(argAdvertType > 0x0);
+        require(rulesMaxWorth > 0x0);
+        require(rulesMinWorth <= rulesMaxWorth);
         require(argCategories.length == argCategoryValues.length);
+        require(tokenContract.balanceOf(msg.sender) >= rewardsBufferCoins);
 
         advertsCount++;
 
@@ -130,7 +191,7 @@ contract BaseContract {
         adverts[advertsCount] = Advert(
             advertsCount,
             msg.sender,
-            rewardsCoins,
+            rewardsBufferCoins,
             argUrl,
             argShortDesc,
             argImageUrl,
@@ -139,6 +200,14 @@ contract BaseContract {
 
         updateAdvertSearchData(adverts[advertsCount], argCategories, argCategoryValues);
         mergeClientInfoKeys(rulesKey);
+
+        CreateAdvert(
+            msg.sender,
+            advertsCount,
+            argAdvertType,
+            argCategories,
+            argCategoryValues
+        );
 
         return advertsCount;
     }
@@ -152,6 +221,10 @@ contract BaseContract {
         returns (uint256[])
     {
         address addr = msg.sender;
+        require(addr != 0x0);
+
+        SearchAdvert(addr, advertType, categories, categoryValues);
+
         mapping (uint256 => bool) advertIds = clients[addr].searchAdvertIds;
         uint256[] storage resultIds = clients[addr].resultIds;
 
@@ -176,7 +249,6 @@ contract BaseContract {
 
         return resultIds;
     }
-
 
     function updateAdvertSearchData(
         Advert storage advert,
@@ -222,7 +294,7 @@ contract BaseContract {
         private
         returns (bool)
     {
-        if (advert.rewardsCoins < advert.rules.maxWorth) {
+        if (advert.rewardsBufferCoins < advert.rules.maxWorth) {
             return false;
         }
 
@@ -299,83 +371,4 @@ contract BaseContract {
             rootSearch[argAdvertType].exists = true;
         }
     }
-
-// this code demonstrates how the advertising words were saved for search before to the latest version.
-// (!for reference only!)
-// todo will be deleted in next commit!
-//    function recursiveAddSearchWords(
-//        bytes32[] words,
-//        OfferWord storage offerWord,
-//        uint32 index,
-//        uint256 advertId
-//    )
-//        private
-//        returns (bytes32[])
-//    {
-//        if (index >= words.length) {
-//            offerWord.advert.push(advertId);
-//            return words;
-//        }
-//
-//        OfferWord storage next = offerWord.offers[words[index]];
-//        if (!next.exists) {
-//            offerWord.keys.push(words[index]);
-//            next.exists = true;
-//        }
-//
-//        index++;
-//
-//        return recursiveAddSearchWords(words, next, index);
-//    }
-//
-//    function recursiveSearchWords(bytes32[] words, OfferWord storage offerWord, uint32 index)
-//        private
-//        returns (bytes32[])
-//    {
-//        if (index >= words.length) {
-//            return offerWord.keys;
-//        } else {
-//
-//            OfferWord storage next = offerWord.offers[words[index]];
-//
-//            if (next.keys.length == 0 && index == words.length - 1 && index > 0
-//                || next.keys.length == 0 && index < words.length - 1)
-//                return new bytes32[](0);
-//            else if (next.keys.length == 0)
-//                return offerWord.keys;
-//
-//            index++;
-//            return recursiveSearchWords(words, next, index);
-//        }
-//    }
-//
-//    function recursiveCollectAdvertsByWords(bytes32[] words,bytes32[] words, ignoreAdverts)
-//    private
-//    returns (uint256[])
-//    {
-//        if (index >= words.length) {
-//            return offerWord.adverts;
-//        } else {
-//
-//            bool hasNext = false;
-//            uint8 index = 0;
-//            Advert[] adverts;
-//            OfferWord storage next;
-//
-//            while(!hasNext) {
-//                next = offerWord.offers[words[index]];
-//                adverts.push(next);
-//                index++;
-//            }
-//
-//            if (next.keys.length == 0 && index == words.length - 1 && index > 0
-//                || next.keys.length == 0 && index < words.length - 1)
-//                return new bytes32[](0);
-//            else if (next.keys.length == 0)
-//                return offerWord.keys;
-//
-//            index++;
-//            return recursiveSearchWords(words, next, index);
-//        }
-//    }
 }

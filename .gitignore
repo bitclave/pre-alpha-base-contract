@@ -48,3 +48,4 @@ fabric.properties
 # Solidity
 /build/
 /bin/
+/node_modules/
