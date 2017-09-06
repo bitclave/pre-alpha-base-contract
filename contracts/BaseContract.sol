@@ -1,14 +1,13 @@
 pragma solidity ^0.4.11;
 
 import "./PreCATToken.sol";
-
+import "./HolderAdCoins.sol";
 
 contract BaseContract {
     event Transfer(address indexed _from, address indexed _to, uint advertId, uint256 _value);
 
     event CreateAdvert(
-        address indexed addr,
-        uint advertId,
+        address indexed holderCoins,
         bytes32 argAdvertType,
         bytes32[] argCategories,
         bytes32[] argCategoryValues
@@ -49,8 +48,7 @@ contract BaseContract {
 
     struct Advert {
         uint advertId;
-        address offerAddress;
-        uint256 rewardsBufferCoins;
+        HolderAdCoins holderCoins;
         mapping (bytes32 => bytes32) searchData;
         string url;
         string shortDesc;
@@ -116,16 +114,14 @@ contract BaseContract {
         require(addr != 0x0);
         require(advert.advertId == advertId);
         require(client.rewards[advertId] > 0);
-        require(advert.rewardsBufferCoins >= client.rewards[advertId]);
-        require(tokenContract.balanceOf(advert.offerAddress) >= client.rewards[advertId]);
+        require(tokenContract.balanceOf(advert.holderCoins) >= client.rewards[advertId]);
 
         uint256 reward = client.rewards[advertId];
-        advert.rewardsBufferCoins -= client.rewards[advertId];
         client.rewards[advertId] = 0;
 
-        tokenContract.transfer(addr, reward);
+        advert.holderCoins.transfer(ADDRESS_CONTRACT_OF_TOKENS, addr, reward);
 
-        Transfer(advert.offerAddress, addr, advertId, reward);
+        Transfer(advert.holderCoins, addr, advertId, reward);
 
         return reward;
     }
@@ -134,31 +130,13 @@ contract BaseContract {
         Advert storage advert = adverts[advertId];
 
         require(advert.advertId > 0);
-        require(msg.sender == advert.offerAddress);
+        require(advert.holderCoins.isOfferAddress(msg.sender));
 
-        return advert.rewardsBufferCoins;
-    }
-
-    function setAdvertRewardsBufferCoins(
-        uint advertId,
-        uint256 rewardsBufferCoins
-    )
-        public
-        returns (uint256)
-    {
-        Advert storage advert = adverts[advertId];
-
-        require(msg.sender == advert.offerAddress);
-        require(tokenContract.balanceOf(msg.sender) >= rewardsBufferCoins);
-
-        advert.rewardsBufferCoins = rewardsBufferCoins;
-
-        return advert.rewardsBufferCoins;
+        return tokenContract.balanceOf(advert.holderCoins);
     }
 
     // todo separate to few functions.
     function createAdvertInCatalog(
-        uint256 rewardsBufferCoins,
         bytes32 argAdvertType,
         bytes32[] argCategories,
         bytes32[] argCategoryValues,
@@ -173,25 +151,23 @@ contract BaseContract {
         uint8[] rulesWorth
     )
         public
-        returns (uint)
+        returns (address holderAdCoins)
     {
         require(msg.sender > 0x0);
-        require(rewardsBufferCoins > 0x0);
         require(argAdvertType > 0x0);
         require(rulesMaxWorth > 0x0);
         require(rulesMinWorth <= rulesMaxWorth);
         require(argCategories.length == argCategoryValues.length);
-        require(tokenContract.balanceOf(msg.sender) >= rewardsBufferCoins);
 
         advertsCount++;
 
         updateSubCategories(argAdvertType, argCategories);
         createOfferWordsByAdvertType(argAdvertType);
 
+        HolderAdCoins holderAddress = new HolderAdCoins(msg.sender, advertsCount);
         adverts[advertsCount] = Advert(
             advertsCount,
-            msg.sender,
-            rewardsBufferCoins,
+            holderAddress,
             argUrl,
             argShortDesc,
             argImageUrl,
@@ -202,14 +178,13 @@ contract BaseContract {
         mergeClientInfoKeys(rulesKey);
 
         CreateAdvert(
-            msg.sender,
-            advertsCount,
+            holderAddress,
             argAdvertType,
             argCategories,
             argCategoryValues
         );
 
-        return advertsCount;
+        return holderAddress;
     }
 
     function searchAdvert(
@@ -294,7 +269,7 @@ contract BaseContract {
         private
         returns (bool)
     {
-        if (advert.rewardsBufferCoins < advert.rules.maxWorth) {
+        if (tokenContract.balanceOf(advert.holderCoins) >= advert.rules.maxWorth) {
             return false;
         }
 

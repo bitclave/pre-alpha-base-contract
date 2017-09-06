@@ -40,7 +40,6 @@ contract('BaseContract', function (accounts) {
                 let rulesWorth = [60, 20, 10, 10];
 
                 await this.token.createAdvertInCatalog(
-                        10000,
                         this.rootCategory,
                         this.category,
                         this.categoryValues,
@@ -57,7 +56,6 @@ contract('BaseContract', function (accounts) {
 
                 rulesActions = [3, 3, 1, 5]; //0 - '=='; 1 - '!='; 2 - '<='; 3 - '>='; 4 - '>'; 5 - '<'.
                 await this.token.createAdvertInCatalog(
-                        10000,
                         this.rootCategory,
                         this.category,
                         this.categoryValues,
@@ -75,7 +73,6 @@ contract('BaseContract', function (accounts) {
                 rulesActions = [5, 3, 0, 0]; //0 - '=='; 1 - '!='; 2 - '<='; 3 - '>='; 4 - '>'; 5 - '<'.
 
                 await this.token.createAdvertInCatalog(
-                        1999,
                         this.rootCategory,
                         this.category,
                         this.categoryValues,
@@ -92,7 +89,6 @@ contract('BaseContract', function (accounts) {
 
                 rulesActions = [3, 3, 0, 0];
                 await this.token.createAdvertInCatalog(
-                        2000,
                         fromAscii("home", 32),
                         [fromAscii("city", 32)],
                         [fromAscii("somevalue", 32)],
@@ -161,49 +157,10 @@ contract('BaseContract', function (accounts) {
 
         let printBytes32Array = function (bytes32array) {
                 let len = bytes32array.length;
-                console.log("start --------");
+                console.log("--------start --------");
                 for (let i = 0; i < len; i++) {
                         console.log(web3.toAscii(bytes32array[i]));
                 }
-                console.log("finish --------");
+                console.log("--------finish --------");
         };
-
-        it('add and read words from storage', async function () {
-                // let unknown = fromAscii("unknown", 32);
-                // let house = fromAscii("house", 32);
-                // let car = fromAscii("car", 32);
-                // let model = fromAscii("toyota", 32);
-                // let mark = fromAscii("corolla", 32);
-
-                // await this.token.createSearchWords([car, model, mark]);
-                // await this.token.createSearchWords([house]);
-                // await this.token.createSearchWords([house]);
-                // await this.token.createSearchWords([car, model]);
-                // await this.token.createSearchWords([car]);
-                //
-                //
-                // let result = await this.token.searchOffers.call([unknown]);
-                // assert.equal(result.length, 2, "not equal");
-                // assert.equal(result[0], car, "not equal");
-                // assert.equal(result[1], house, "not equal");
-                //
-                // result = await this.token.searchOffers.call([]);
-                // assert.equal(result.length, 2, "not equal");
-                // assert.equal(result[0], car, "not equal");
-                // assert.equal(result[1], house, "not equal");
-                //
-                // result = await this.token.searchOffers.call([car, model, mark]);
-                // assert.equal(result.length, 0, "not equal");
-                //
-                // result = await this.token.searchOffers.call([car, model]);
-                // assert.equal(result.length, 1, "not equal");
-                // assert.equal(result[0], mark, "not equal");
-                //
-                // result = await this.token.searchOffers.call([car]);
-                // assert.equal(result.length, 1, "not equal");
-                // assert.equal(result[0], model, "not equal");
-                //
-                // result = await this.token.searchOffers.call([car, model, mark, unknown]);
-                // printBytes32Array(result);
-        });
 });
