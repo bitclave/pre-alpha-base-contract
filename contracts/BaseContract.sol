@@ -7,7 +7,8 @@ contract BaseContract {
     event Transfer(address indexed _from, address indexed _to, uint advertId, uint256 _value);
 
     event CreateAdvert(
-        address indexed holderCoins,
+        address indexed advertiser,
+        uint advertId,
         bytes32 argAdvertType,
         bytes32[] argCategories,
         bytes32[] argCategoryValues
@@ -18,6 +19,11 @@ contract BaseContract {
         bytes32 advertType,
         bytes32[] categories,
         bytes32[] categoryValues
+    );
+
+    event foundOffers(
+        address indexed addr,
+        uint[] advertIds
     );
 
     event SaveUserData(address indexed addr, bytes32[] keys, bytes32[] values);
@@ -81,21 +87,56 @@ contract BaseContract {
     function BaseContract() {
     }
 
-    function getClientInfoFields() public returns(bytes32[]) {
+    function getClientInfoFields() public constant returns(bytes32[]) {
         return clientInfoKeys.keys;
     }
 
-    function getSubCategories(bytes32 advertType) public returns (bytes32[]) {
+    function getSubCategories(bytes32 advertType) public constant returns (bytes32[]) {
         return rootSearch[advertType].categories;
     }
 
-    function getAdvertTypes() public returns (bytes32[]) {
+    function getAdvertTypes() public constant returns (bytes32[]) {
         return advertTypes;
     }
 
-    function getAdvert(uint advertId) public returns (string url, string shortDesc, string imageUrl) {
+    function getAdvert(uint advertId)
+        public
+        constant
+        returns
+    (
+        address holder,
+        string url,
+        string shortDesc,
+        string imageUrl
+    )
+    {
         Advert storage advert = adverts[advertId];
-        return (advert.url, advert.shortDesc, advert.imageUrl);
+        return (advert.holderCoins, advert.url, advert.shortDesc, advert.imageUrl);
+    }
+
+    function getAdvertRules(uint advertId)
+        public
+        constant
+        returns
+    (
+        uint256 minWorth,
+        uint256 maxWorth,
+        bytes32[] key,
+        bytes32[] value,
+        uint8[] action,
+        uint8[] worth
+    )
+    {
+        Advert storage advert = adverts[advertId];
+
+        return (
+            advert.rules.minWorth,
+            advert.rules.maxWorth,
+            advert.rules.key,
+            advert.rules.value,
+            advert.rules.action,
+            advert.rules.worth
+        );
     }
 
     function saveUserInfo(bytes32[] keys, bytes32[] values) public {
@@ -107,7 +148,7 @@ contract BaseContract {
             info[keys[i]] = values[i];
     }
 
-    function transferUserRewards(uint advertId) public payable returns (uint256) {
+    function transferUserRewards(uint advertId) public returns (uint256) {
         address addr = msg.sender;
         Client storage client = clients[addr];
         Advert storage advert = adverts[advertId];
@@ -126,7 +167,7 @@ contract BaseContract {
         return reward;
     }
 
-    function getAdvertBufferCoins(uint advertId) public returns (uint256) {
+    function getAdvertBufferCoins(uint advertId) public constant returns (uint256) {
         Advert storage advert = adverts[advertId];
 
         require(advert.advertId > 0);
@@ -151,7 +192,6 @@ contract BaseContract {
         uint8[] rulesWorth
     )
         public
-        returns (address holderAdCoins)
     {
         require(msg.sender > 0x0);
         require(argAdvertType > 0x0);
@@ -178,13 +218,12 @@ contract BaseContract {
         mergeClientInfoKeys(rulesKey);
 
         CreateAdvert(
-            holderAddress,
+            msg.sender,
+            advertsCount,
             argAdvertType,
             argCategories,
             argCategoryValues
         );
-
-        return holderAddress;
     }
 
     function searchAdvert(
@@ -193,7 +232,6 @@ contract BaseContract {
         bytes32[] categoryValues
     )
         public
-        returns (uint256[])
     {
         address addr = msg.sender;
         require(addr != 0x0);
@@ -206,7 +244,7 @@ contract BaseContract {
         SubCategories storage subCategories = rootSearch[advertType];
 
         if (subCategories.exists == false)
-            return new uint256[](0);
+            return;
 
         for(uint i = 0; i < categories.length; i++) {
             uint256[] memory ids = subCategories.mapCategories[categories[i]];
@@ -222,7 +260,7 @@ contract BaseContract {
             }
         }
 
-        return resultIds;
+        foundOffers(msg.sender, resultIds);
     }
 
     function updateAdvertSearchData(
