@@ -68,6 +68,8 @@ contract BaseContract {
         bool exists;
     }
 
+    mapping (address => uint[]) private mapAdvertiserOffers;
+
     // advertTypes (car/home etc) => struct(second categories (mark, city etc.) => array of id);
     mapping (bytes32 => SubCategories) private rootSearch;
 
@@ -85,6 +87,14 @@ contract BaseContract {
     PreCATToken private tokenContract = PreCATToken(ADDRESS_CONTRACT_OF_TOKENS);
 
     function BaseContract() {
+    }
+
+    function getAdvertiserOffers() public constant returns(uint[]) {
+        return mapAdvertiserOffers[msg.sender];
+    }
+
+    function getClientFoundOffers() public constant returns(uint[]) {
+        return clients[msg.sender].resultIds;
     }
 
     function getClientInfoFields() public constant returns(bytes32[]) {
@@ -213,6 +223,7 @@ contract BaseContract {
             argImageUrl,
             Rules(rulesMinWorth, rulesMaxWorth, rulesKey, rulesValue, rulesAction, rulesWorth)
         );
+        mapAdvertiserOffers[msg.sender].push(advertsCount);
 
         updateAdvertSearchData(adverts[advertsCount], argCategories, argCategoryValues);
         mergeClientInfoKeys(rulesKey);
