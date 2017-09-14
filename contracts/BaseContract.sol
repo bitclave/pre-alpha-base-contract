@@ -117,11 +117,31 @@ contract BaseContract {
         address holder,
         string url,
         string shortDesc,
-        string imageUrl
+        string imageUrl,
+        uint256 reward
     )
     {
+        byte accessSuccess = 0;
+
+        uint[] storage advertiserOffers = mapAdvertiserOffers[msg.sender];
+
+        for(uint i = 0; i < advertiserOffers.length; i++) {
+            if (advertiserOffers[i] == advertId) {
+                accessSuccess = 0x1;
+                break;
+            }
+        }
+
+        uint256 clientRewards = clients[msg.sender].rewards[advertId];
+        if (clientRewards > 0) {
+            accessSuccess = 0x1;
+        }
+
+        require(accessSuccess == 0x1);
+
         Advert storage advert = adverts[advertId];
-        return (advert.holderCoins, advert.url, advert.shortDesc, advert.imageUrl);
+
+        return (advert.holderCoins, advert.url, advert.shortDesc, advert.imageUrl, clientRewards);
     }
 
     function getAdvertRules(uint advertId)

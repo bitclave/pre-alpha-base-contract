@@ -103,6 +103,9 @@ contract('BaseContract', function (accounts) {
                         rulesWorth
                 );
 
+                let resultAdvert = await this.token.getAdvert.call(1);
+                console.log(resultAdvert);
+
                 let arrayKeys = await this.token.getClientInfoFields.call();
                 console.log("getClientInfoFields:");
                 printBytes32Array(arrayKeys);
