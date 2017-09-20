@@ -28,11 +28,11 @@ contract BaseContract {
 
     event SaveUserData(address indexed addr, bytes32[] keys, bytes32[] values);
 
+    uint8 constant MIN_PERCENTAGE_SIMILARITY = 0x50;
+    uint8 constant MAX_COUNT_SHOWED_AD = 0x4; //start from 0 (zero);
     address constant ADDRESS_CONTRACT_OF_TOKENS = 0xcF6137b80171540a9c6C10D3332E3de5d93B4EF7;
 
     struct Client {
-        // need remove this. but, how!?
-        mapping (uint => bool) searchAdvertIds;
         uint[] resultIds;
         mapping(bytes32 => bytes32) info;
         mapping(uint => uint256) rewards;
@@ -68,6 +68,9 @@ contract BaseContract {
         bool exists;
     }
 
+    // userAddress => (advertId => count). count - may be max == 4.
+    mapping(address => mapping(uint => uint8)) mapAdvertShowedCount;
+
     mapping (address => uint[]) private mapAdvertiserOffers;
 
     // advertTypes (car/home etc) => struct(second categories (mark, city etc.) => array of id);
@@ -77,14 +80,14 @@ contract BaseContract {
     bytes32[] private advertTypes;
 
     // index of items adverts for generate unique number
-    uint private advertsCount;
+    uint private advertIndexedId;
     mapping (uint => Advert) private adverts;
 
     mapping (address => Client) private clients;
 
     ClientInfoKeys private clientInfoKeys;
 
-    PreCATToken private tokenContract = PreCATToken(ADDRESS_CONTRACT_OF_TOKENS);
+    PreCATToken private tokenContract = new PreCATToken("TOKEN", "TKN"); //PreCATToken(ADDRESS_CONTRACT_OF_TOKENS);
 
     function BaseContract() {
     }
@@ -95,6 +98,18 @@ contract BaseContract {
 
     function getClientFoundOffers() public constant returns(uint[]) {
         return clients[msg.sender].resultIds;
+    }
+
+    function getClientInfoValues() public constant returns(bytes32[]) {
+        uint size = clientInfoKeys.keys.length;
+        mapping(bytes32 => bytes32) info = clients[msg.sender].info;
+
+        bytes32[] memory values = new bytes32[](size);
+        for(uint i = 0; i < size; i++) {
+            values[i] = info[clientInfoKeys.keys[i]];
+        }
+
+        return values;
     }
 
     function getClientInfoFields() public constant returns(bytes32[]) {
@@ -170,7 +185,6 @@ contract BaseContract {
     }
 
     function saveUserInfo(bytes32[] keys, bytes32[] values) public {
-        require(msg.sender != 0x0);
         SaveUserData(msg.sender, keys, values);
 
         mapping(bytes32 => bytes32) info = clients[msg.sender].info;
@@ -178,23 +192,27 @@ contract BaseContract {
             info[keys[i]] = values[i];
     }
 
-    function transferUserRewards(uint advertId) public returns (uint256) {
-        address addr = msg.sender;
-        Client storage client = clients[addr];
+    function getUserRewards(uint advertId) public constant returns (uint256) {
+        return clients[msg.sender].rewards[advertId];
+    }
+
+    function transferUserRewards(uint advertId) public {
+        Client storage client = clients[msg.sender];
         Advert storage advert = adverts[advertId];
-        require(addr != 0x0);
+
         require(advert.advertId == advertId);
         require(client.rewards[advertId] > 0);
         require(tokenContract.balanceOf(advert.holderCoins) >= client.rewards[advertId]);
 
         uint256 reward = client.rewards[advertId];
-        client.rewards[advertId] = 0;
+        client.rewards[advertId] = 0x0;
 
-        advert.holderCoins.transfer(ADDRESS_CONTRACT_OF_TOKENS, addr, reward);
+        advert.holderCoins.transfer(msg.sender, reward);
 
-        Transfer(advert.holderCoins, addr, advertId, reward);
-
-        return reward;
+        if (mapAdvertShowedCount[msg.sender][advert.advertId] < MAX_COUNT_SHOWED_AD) {
+            mapAdvertShowedCount[msg.sender][advert.advertId]++;
+        }
+        Transfer(advert.holderCoins, msg.sender, advertId, reward);
     }
 
     function getAdvertBufferCoins(uint advertId) public constant returns (uint256) {
@@ -204,6 +222,10 @@ contract BaseContract {
         require(advert.holderCoins.isOfferAddress(msg.sender));
 
         return tokenContract.balanceOf(advert.holderCoins);
+    }
+
+    function updateAdBalance(uint advertId, uint256 value) {
+        tokenContract.transfer(adverts[advertId].holderCoins, value);
     }
 
     // todo separate to few functions.
@@ -229,28 +251,28 @@ contract BaseContract {
         require(rulesMinWorth <= rulesMaxWorth);
         require(argCategories.length == argCategoryValues.length);
 
-        advertsCount++;
+        advertIndexedId++;
 
         updateSubCategories(argAdvertType, argCategories);
         createOfferWordsByAdvertType(argAdvertType);
 
-        HolderAdCoins holderAddress = new HolderAdCoins(msg.sender, advertsCount);
-        adverts[advertsCount] = Advert(
-            advertsCount,
+        HolderAdCoins holderAddress = new HolderAdCoins(tokenContract, msg.sender, advertIndexedId);
+        adverts[advertIndexedId] = Advert(
+            advertIndexedId,
             holderAddress,
             argUrl,
             argShortDesc,
             argImageUrl,
             Rules(rulesMinWorth, rulesMaxWorth, rulesKey, rulesValue, rulesAction, rulesWorth)
         );
-        mapAdvertiserOffers[msg.sender].push(advertsCount);
+        mapAdvertiserOffers[msg.sender].push(advertIndexedId);
 
-        updateAdvertSearchData(adverts[advertsCount], argCategories, argCategoryValues);
+        updateAdvertSearchData(adverts[advertIndexedId], argCategories, argCategoryValues);
         mergeClientInfoKeys(rulesKey);
 
         CreateAdvert(
             msg.sender,
-            advertsCount,
+            advertIndexedId,
             argAdvertType,
             argCategories,
             argCategoryValues
@@ -264,34 +286,121 @@ contract BaseContract {
     )
         public
     {
-        address addr = msg.sender;
-        require(addr != 0x0);
-
-        SearchAdvert(addr, advertType, categories, categoryValues);
-
-        mapping (uint256 => bool) advertIds = clients[addr].searchAdvertIds;
-        uint256[] storage resultIds = clients[addr].resultIds;
+        require(msg.sender != address(0));
+        require(categories.length > 0);
+        require(categories.length == categoryValues.length);
 
         SubCategories storage subCategories = rootSearch[advertType];
 
-        if (subCategories.exists == false)
-            return;
+        require(subCategories.exists == true);
+
+        SearchAdvert(msg.sender, advertType, categories, categoryValues);
+
+        clearUserRewards();
+
+        uint256[] storage resultIds = clients[msg.sender].resultIds;
+        uint8 foundItem = 0;
 
         for(uint i = 0; i < categories.length; i++) {
-            uint256[] memory ids = subCategories.mapCategories[categories[i]];
-
-            for (uint j = 0; j < ids.length; j++) {
-               if(!advertIds[ids[j]]) {
-                   advertIds[ids[j]] = true;
-                  if (comparisonAdvertData(adverts[ids[j]], categories, categoryValues)
-                        && comparisonAdvertRules(addr, adverts[ids[j]])) {
-                      resultIds.push(ids[j]);
-                  }
-               }
+            uint256[] memory advertIds = subCategories.mapCategories[categories[i]];
+            for (uint j = 0; j < advertIds.length; j++) {
+                foundItem = 0;
+                for(uint k = 0; k < resultIds.length; k++) {
+                    if (resultIds[k] == advertIds[j]){
+                        foundItem = 1;
+                        break;
+                    }
+                }
+                if (foundItem == 0
+                    && comparisonAdvertData(adverts[advertIds[j]], categories, categoryValues)
+                    && comparisonAdvertRules(adverts[advertIds[j]])) {
+                    resultIds.push(advertIds[j]);
+                }
             }
         }
 
         foundOffers(msg.sender, resultIds);
+    }
+
+    function clearUserRewards() private {
+        uint256[] storage resultIds = clients[msg.sender].resultIds;
+        mapping(uint => uint256) rewards = clients[msg.sender].rewards;
+
+        for (uint i = 0; i < resultIds.length; i++) {
+            rewards[resultIds[i]] = 0;
+        }
+
+        delete clients[msg.sender].resultIds;
+    }
+
+    function comparisonAdvertData(
+        Advert storage advert,
+        bytes32[] categories,
+        bytes32[] categoryValues
+    )
+        private
+        returns (bool)
+    {
+        require(advert.rules.maxWorth > 0x0);
+
+        if (tokenContract.balanceOf(advert.holderCoins) < advert.rules.maxWorth) {
+            return false;
+        }
+
+        for(uint i = 0; i < categories.length; i++) {
+            if (advert.searchData[categories[i]] != categoryValues[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function comparisonAdvertRules(Advert advert) private returns (bool) {
+        Client storage client = clients[msg.sender];
+        mapping (bytes32 => bytes32) info = client.info;
+        bytes32 clientKeyValue;
+        bytes32 advertKeyValue;
+        uint8 action;
+        uint worthPresents;
+
+        for (uint i = 0; i < advert.rules.key.length; i++) {
+            clientKeyValue = info[advert.rules.key[i]];
+            advertKeyValue = advert.rules.value[i];
+            action = advert.rules.action[i];
+
+            if (action == 0 && clientKeyValue == advertKeyValue) {
+                worthPresents += advert.rules.worth[i];
+            } else if (action == 1 && clientKeyValue != advertKeyValue) {
+                worthPresents += advert.rules.worth[i];
+            } else if (action == 2 && clientKeyValue <= advertKeyValue) {
+                worthPresents += advert.rules.worth[i];
+            } else if (action == 3 && clientKeyValue >= advertKeyValue) {
+                worthPresents += advert.rules.worth[i];
+            } else if (action == 4 && clientKeyValue > advertKeyValue) {
+                worthPresents += advert.rules.worth[i];
+            } else if (action == 5 && clientKeyValue < advertKeyValue) {
+                worthPresents += advert.rules.worth[i];
+            }
+        }
+
+        uint8 showedCount = mapAdvertShowedCount[msg.sender][advert.advertId];
+
+        if (worthPresents >= MIN_PERCENTAGE_SIMILARITY) {
+            if (showedCount < MAX_COUNT_SHOWED_AD) {
+                worthPresents = mathDiv(worthPresents, showedCount + 1);
+                uint256 rewards = mathDiv(mathMul(advert.rules.maxWorth, worthPresents), 100);
+                client.rewards[advert.advertId] = mathMax(rewards, advert.rules.minWorth);
+
+            } else {
+                client.rewards[advert.advertId] = 0x0;
+            }
+
+            return true;
+        }
+
+        client.rewards[advert.advertId] = 0x0;
+        return false;
     }
 
     function updateAdvertSearchData(
@@ -301,8 +410,9 @@ contract BaseContract {
     )
         private
     {
-        for(uint i = 0; i < argCategories.length; i++)
+        for(uint i = 0; i < argCategories.length; i++) {
             advert.searchData[argCategories[i]] = argCategoryValues[i];
+        }
     }
 
     function updateSubCategories(
@@ -314,10 +424,10 @@ contract BaseContract {
         SubCategories storage subCategories = rootSearch[argAdvertType];
 
         for (uint i = 0; i < argCategories.length; i++) {
-            if (subCategories.mapCategories[argCategories[i]].length == 0)
+            if (subCategories.mapCategories[argCategories[i]].length == 0) {
                 subCategories.categories.push(argCategories[i]);
-
-            subCategories.mapCategories[argCategories[i]].push(advertsCount);
+            }
+            subCategories.mapCategories[argCategories[i]].push(advertIndexedId);
         }
     }
 
@@ -328,69 +438,6 @@ contract BaseContract {
                 clientInfoKeys.existed[keys[i]] = true;
             }
         }
-    }
-
-    function comparisonAdvertData(
-        Advert storage advert,
-        bytes32[] categories,
-        bytes32[] categoryValues
-    )
-        private
-        returns (bool)
-    {
-        if (tokenContract.balanceOf(advert.holderCoins) >= advert.rules.maxWorth) {
-            return false;
-        }
-
-        for(uint i = 0; i < categories.length; i++) {
-           if (advert.searchData[categories[i]] != categoryValues[i])
-                return false;
-        }
-
-        return true;
-    }
-
-    function comparisonAdvertRules(address addr, Advert advert) private returns (bool) {
-        Client storage client = clients[addr];
-        mapping (bytes32 => bytes32) info = client.info;
-        bytes32 clientKeyValue;
-        bytes32 advertKeyValue;
-        uint8 action;
-        uint worth;
-        uint worthPresents;
-
-        for (uint i = 0; i < advert.rules.key.length; i++) {
-            clientKeyValue = info[advert.rules.key[i]];
-            advertKeyValue = advert.rules.value[i];
-            action = advert.rules.action[i];
-            worth = 0;
-            if (action == 0 && clientKeyValue == advertKeyValue)
-                worth = advert.rules.worth[i];
-
-            else if (action == 1 && clientKeyValue != advertKeyValue)
-                worth = advert.rules.worth[i];
-
-            else if (action == 2 && clientKeyValue <= advertKeyValue)
-                worth = advert.rules.worth[i];
-
-            else if (action == 3 && clientKeyValue >= advertKeyValue)
-                worth = advert.rules.worth[i];
-
-            else if (action == 4 && clientKeyValue > advertKeyValue)
-                worth = advert.rules.worth[i];
-
-            else if (action == 5 && clientKeyValue < advertKeyValue)
-                worth = advert.rules.worth[i];
-
-            worthPresents += worth;
-        }
-
-        if (worthPresents >= 50) { // 50% - minimum for activate advert
-            uint256 rewards = mathDiv(mathMul(advert.rules.maxWorth, worthPresents), 100);
-            client.rewards[advert.advertId] = mathMax(rewards, advert.rules.minWorth);
-            return true;
-        }
-        return false;
     }
 
     function mathMul(uint256 a, uint256 b) internal constant returns (uint256) {

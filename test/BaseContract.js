@@ -34,7 +34,6 @@ contract('BaseContract', function (accounts) {
         });
 
         it('create advert and validate set data', async function(){
-
                 let rulesActions = [5, 3, 0, 0]; //0 - '=='; 1 - '!='; 2 - '<='; 3 - '>='; 4 - '>'; 5 - '<'.
 
                 let rulesWorth = [60, 20, 10, 10];
@@ -107,7 +106,7 @@ contract('BaseContract', function (accounts) {
                 console.log(resultAdvert);
 
                 let arrayKeys = await this.token.getClientInfoFields.call();
-                console.log("getClientInfoFields:");
+                console.log("getClientInfoFields:", arrayKeys);
                 printBytes32Array(arrayKeys);
                 assert.equal(arrayKeys.length, 4, "incorrect count of user fields");
                 assert.equal(arrayKeys[0], this.rulesKeys[0], "incorrect user field index 0");
@@ -115,20 +114,24 @@ contract('BaseContract', function (accounts) {
                 assert.equal(arrayKeys[2], this.rulesKeys[2], "incorrect user field index 2");
                 assert.equal(arrayKeys[3], this.rulesKeys[3], "incorrect user field index 3");
 
-                await this.token.saveUserInfo(
-                        this.rulesKeys, this.rulesValues);
+                await this.token.saveUserInfo(this.rulesKeys, this.rulesValues);
 
-                let result = await this.token.searchAdvert(
+                await this.token.updateAdBalance(1, 2000);
+                await this.token.updateAdBalance(2, 5000);
+                await this.token.updateAdBalance(3, 2000);
+                await this.token.updateAdBalance(4, 2000);
+
+                let result = await this.token.getAdvertiserOffers.call();
+                console.log(result);
+                assert.equal(result.length, 4, "incorrect count of created AD");
+
+                await this.token.searchAdvert(
                         this.rootCategory,
                         this.category,
                         this.categoryValues
                 );
 
-                result = await this.token.searchAdvert.call( //without save. only for get result
-                        this.rootCategory,
-                        this.category,
-                        this.categoryValues
-                );
+                result = await this.token.getClientFoundOffers.call();
                 assert.equal(result.length, 1, "incorrect count of searched AD");
                 assert.equal(result[0], 2, "incorrect AD id");
 
@@ -147,9 +150,41 @@ contract('BaseContract', function (accounts) {
                         assert.equal(advertSubCategory[i], this.category[i], "incorrect subcategories index " + i);
                 }
 
-                let reward = await this.token.transferUserRewards.call(2); //2 - active advert id
+                let reward = await this.token.getUserRewards.call(2);
                 console.log("rewards:", reward);
                 assert.equal(reward, 1600, "incorrect rewards for client"); //1600 = 80% from 2000
+                await this.token.transferUserRewards(2); //2 - active advert id
+
+                await this.token.searchAdvert(
+                        this.rootCategory,
+                        this.category,
+                        this.categoryValues
+                );
+                reward = await this.token.getUserRewards.call(2);
+                console.log("rewards:", reward);
+                assert.equal(reward, 800, "incorrect rewards for client"); //1600(80% from 2000) / 2 (next showed count) = 800
+                await this.token.transferUserRewards(2); //2 - active advert id
+
+                await this.token.searchAdvert(
+                        this.rootCategory,
+                        this.category,
+                        this.categoryValues
+                );
+
+                reward = await this.token.getUserRewards.call(2);
+                console.log("rewards:", reward);
+                assert.equal(reward, 520, "incorrect rewards for client"); //1600(80% from 2000) / 3 (next showed count) = 520
+                await this.token.transferUserRewards(2); //2 - active advert id
+
+                result = await this.token.searchAdvert(
+                        this.rootCategory,
+                        this.category,
+                        this.categoryValues
+                );
+                reward = await this.token.getUserRewards.call(2);
+                console.log("rewards:", reward);
+                assert.equal(reward, 400, "incorrect rewards for client"); //1600(80% from 2000) / 4 (next showed count) = 520
+                await this.token.transferUserRewards(2); //2 - active advert id
         });
 
         let fromAscii = function (str, padding) {
