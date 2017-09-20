@@ -29,4 +29,11 @@ library SafeMath {
         assert(c >= a);
         return c;
     }
+
+    function max(uint a, uint b) internal constant returns (uint) {
+        if (a > b)
+            return a;
+        else
+            return b;
+    }
 }

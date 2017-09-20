@@ -2,6 +2,7 @@ pragma solidity ^0.4.11;
 
 import "./PreCATToken.sol";
 import "./HolderAdCoins.sol";
+import "./SafeMath.sol";
 
 contract BaseContract {
     event Transfer(address indexed _from, address indexed _to, uint advertId, uint256 _value);
@@ -28,8 +29,8 @@ contract BaseContract {
 
     event SaveUserData(address indexed addr, bytes32[] keys, bytes32[] values);
 
-    uint8 constant MIN_PERCENTAGE_SIMILARITY = 0x50;
-    uint8 constant MAX_COUNT_SHOWED_AD = 0x4; //start from 0 (zero);
+    uint constant MIN_PERCENTAGE_SIMILARITY = 50;
+    uint8 constant MAX_COUNT_SHOWED_AD = 4; //start from 0 (zero);
     address constant ADDRESS_CONTRACT_OF_TOKENS = 0xcF6137b80171540a9c6C10D3332E3de5d93B4EF7;
 
     struct Client {
@@ -185,11 +186,10 @@ contract BaseContract {
     }
 
     function saveUserInfo(bytes32[] keys, bytes32[] values) public {
+        for (uint i = 0; i < keys.length; i++) {
+            clients[msg.sender].info[keys[i]] = values[i];
+        }
         SaveUserData(msg.sender, keys, values);
-
-        mapping(bytes32 => bytes32) info = clients[msg.sender].info;
-        for (uint i = 0; i < keys.length; i++)
-            info[keys[i]] = values[i];
     }
 
     function getUserRewards(uint advertId) public constant returns (uint256) {
@@ -356,6 +356,27 @@ contract BaseContract {
         return true;
     }
 
+    function bytesToUInt(bytes32 v) private constant returns (uint ret) {
+        if (v == 0x0) {
+            return 0;
+        }
+
+        uint digit;
+
+        for (uint i = 0; i < 32; i++) {
+            digit = uint((uint(v) / (2 ** (8 * (31 - i)))) & 0xff);
+            if (digit == 0) {
+                break;
+            }
+            else if (digit < 48 || digit > 57) {
+                return 0;
+            }
+            ret *= 10;
+            ret += (digit - 48);
+        }
+        return ret;
+    }
+
     function comparisonAdvertRules(Advert advert) private returns (bool) {
         Client storage client = clients[msg.sender];
         mapping (bytes32 => bytes32) info = client.info;
@@ -368,29 +389,23 @@ contract BaseContract {
             clientKeyValue = info[advert.rules.key[i]];
             advertKeyValue = advert.rules.value[i];
             action = advert.rules.action[i];
-
-            if (action == 0 && clientKeyValue == advertKeyValue) {
-                worthPresents += advert.rules.worth[i];
-            } else if (action == 1 && clientKeyValue != advertKeyValue) {
-                worthPresents += advert.rules.worth[i];
-            } else if (action == 2 && clientKeyValue <= advertKeyValue) {
-                worthPresents += advert.rules.worth[i];
-            } else if (action == 3 && clientKeyValue >= advertKeyValue) {
-                worthPresents += advert.rules.worth[i];
-            } else if (action == 4 && clientKeyValue > advertKeyValue) {
-                worthPresents += advert.rules.worth[i];
-            } else if (action == 5 && clientKeyValue < advertKeyValue) {
-                worthPresents += advert.rules.worth[i];
+            //0 - '=='; 1 - '!='; 2 - '<='; 3 - '>='; 4 - '>'; 5 - '<'.
+            if ((action == 0 && clientKeyValue == advertKeyValue)
+                || (action == 1 && clientKeyValue != advertKeyValue)
+                || (action == 2 && bytesToUInt(clientKeyValue) <= bytesToUInt(advertKeyValue))
+                || (action == 3 && bytesToUInt(clientKeyValue) >= bytesToUInt(advertKeyValue))
+                || (action == 4 && bytesToUInt(clientKeyValue) > bytesToUInt(advertKeyValue))
+                || (action == 5 && bytesToUInt(clientKeyValue) < bytesToUInt(advertKeyValue))) {
+                    worthPresents += advert.rules.worth[i];
             }
         }
 
         uint8 showedCount = mapAdvertShowedCount[msg.sender][advert.advertId];
-
         if (worthPresents >= MIN_PERCENTAGE_SIMILARITY) {
             if (showedCount < MAX_COUNT_SHOWED_AD) {
-                worthPresents = mathDiv(worthPresents, showedCount + 1);
-                uint256 rewards = mathDiv(mathMul(advert.rules.maxWorth, worthPresents), 100);
-                client.rewards[advert.advertId] = mathMax(rewards, advert.rules.minWorth);
+                worthPresents = SafeMath.div(worthPresents, showedCount + 1);
+                uint256 rewards = SafeMath.div(SafeMath.mul(advert.rules.maxWorth, worthPresents), 100);
+                client.rewards[advert.advertId] = SafeMath.max(rewards, advert.rules.minWorth);
 
             } else {
                 client.rewards[advert.advertId] = 0x0;
@@ -438,22 +453,6 @@ contract BaseContract {
                 clientInfoKeys.existed[keys[i]] = true;
             }
         }
-    }
-
-    function mathMul(uint256 a, uint256 b) internal constant returns (uint256) {
-        uint256 c = a * b;
-        assert(a == 0 || c / a == b);
-        return c;
-    }
-
-    function mathDiv(uint256 a, uint256 b) internal constant returns (uint256) {
-        uint256 c = a / b;
-        return c;
-    }
-
-    function mathMax(uint a, uint b) private constant returns (uint) {
-        if (a > b) return a;
-        else return b;
     }
 
     function createOfferWordsByAdvertType(bytes32 argAdvertType) private {
