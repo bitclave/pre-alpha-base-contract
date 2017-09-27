@@ -355,6 +355,8 @@ contract BaseContract {
         public
     {
         require(msg.sender != address(0));
+        clearUserRewards();
+
         require(categories.length > 0);
         require(categories.length == categoryValues.length);
 
@@ -363,8 +365,6 @@ contract BaseContract {
         require(subCategories.exists == true);
 
         SearchAdvert(msg.sender, advertType, categories, categoryValues);
-
-        clearUserRewards();
 
         uint256[] storage resultIds = clients[msg.sender].resultIds;
         uint8 foundItem = 0;
@@ -399,7 +399,8 @@ contract BaseContract {
             rewards[resultIds[i]] = 0;
         }
 
-        delete clients[msg.sender].resultIds;
+        delete resultIds;
+        resultIds.length = 0;
     }
 
     function comparisonAdvertData(
