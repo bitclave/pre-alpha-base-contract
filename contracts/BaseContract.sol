@@ -399,8 +399,8 @@ contract BaseContract {
             rewards[resultIds[i]] = 0;
         }
 
-        delete resultIds;
-        resultIds.length = 0;
+        delete clients[msg.sender].resultIds;
+        clients[msg.sender].resultIds.length = 0;
     }
 
     function comparisonAdvertData(
