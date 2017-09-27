@@ -85,6 +85,22 @@ contract('BaseContract', function (accounts) {
                         rulesWorth
                 );
 
+                await this.token.updateAdvertInCatalog(
+                        3,
+                        this.rootCategory,
+                        this.category,
+                        this.categoryValues,
+                        "http://www.toyota-global.com/",
+                        "this is crossover of toyota motors. Best of the best!? =)",
+                        "https://goo.gl/CLmzaC",
+                        100,
+                        2000,
+                        this.rulesKeys,
+                        this.rulesValuesUsa,
+                        rulesActions,
+                        rulesWorth
+                );
+
                 rulesActions = [5, 3, 0]; //0 - '=='; 1 - '!='; 2 - '<='; 3 - '>='; 4 - '>'; 5 - '<'.
                 await this.token.createAdvertInCatalog(
                         this.rootCategory,

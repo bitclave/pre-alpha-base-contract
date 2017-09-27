@@ -9,10 +9,12 @@ contract BaseContract {
 
     event CreateAdvert(
         address indexed advertiser,
-        uint advertId,
-        bytes32 argAdvertType,
-        bytes32[] argCategories,
-        bytes32[] argCategoryValues
+        uint advertId
+    );
+
+    event UpdateAdvert(
+        address indexed advertiser,
+        uint advertId
     );
 
     event SearchAdvert(
@@ -56,7 +58,9 @@ contract BaseContract {
     struct Advert {
         uint advertId;
         HolderAdCoins holderCoins;
+        bytes32 advertType;
         mapping (bytes32 => bytes32) searchData;
+        bytes32[] categories;
         string url;
         string shortDesc;
         string imageUrl;
@@ -69,7 +73,7 @@ contract BaseContract {
         bool exists;
     }
 
-    // userAddress => (advertId => count). count - may be max == 4.
+    // userAddress => (advertId => count). count - may be max == (MAX_COUNT_SHOWED_AD - 1).
     mapping(address => mapping(uint => uint8)) mapAdvertShowedCount;
 
     mapping (address => uint[]) private mapAdvertiserOffers;
@@ -130,6 +134,9 @@ contract BaseContract {
         constant
         returns
     (
+        bytes32 advertType,
+        bytes32[] categories,
+        bytes32[] categoryValues,
         address holder,
         string url,
         string shortDesc,
@@ -156,8 +163,23 @@ contract BaseContract {
         require(accessSuccess == 0x1);
 
         Advert storage advert = adverts[advertId];
+        require(advertId == advert.advertId);
 
-        return (advert.holderCoins, advert.url, advert.shortDesc, advert.imageUrl, clientRewards);
+        categoryValues = new bytes32[](advert.categories.length);
+        for (i = 0; i < advert.categories.length; i++) {
+            categoryValues[i] = advert.searchData[advert.categories[i]];
+        }
+
+        return (
+            advert.advertType,
+            advert.categories,
+            categoryValues,
+            advert.holderCoins,
+            advert.url,
+            advert.shortDesc,
+            advert.imageUrl,
+            clientRewards
+        );
     }
 
     function getAdvertRules(uint advertId)
@@ -253,13 +275,15 @@ contract BaseContract {
 
         advertIndexedId++;
 
-        updateSubCategories(argAdvertType, argCategories);
+        updateSubCategories(advertIndexedId, argAdvertType, argCategories);
         createOfferWordsByAdvertType(argAdvertType);
 
         HolderAdCoins holderAddress = new HolderAdCoins(tokenContract, msg.sender, advertIndexedId);
         adverts[advertIndexedId] = Advert(
             advertIndexedId,
             holderAddress,
+            argAdvertType,
+            argCategories,
             argUrl,
             argShortDesc,
             argImageUrl,
@@ -272,10 +296,54 @@ contract BaseContract {
 
         CreateAdvert(
             msg.sender,
-            advertIndexedId,
-            argAdvertType,
-            argCategories,
-            argCategoryValues
+            advertIndexedId
+        );
+    }
+
+    function updateAdvertInCatalog(
+        uint advertId,
+        bytes32 argAdvertType,
+        bytes32[] argCategories,
+        bytes32[] argCategoryValues,
+        string argUrl,
+        string argShortDesc,
+        string argImageUrl,
+        uint256 rulesMinWorth,
+        uint256 rulesMaxWorth,
+        bytes32[] rulesKey,
+        bytes32[] rulesValue,
+        uint8[] rulesAction,
+        uint8[] rulesWorth
+    )
+        public
+    {
+
+        Advert storage advert = adverts[advertId];
+        require(advertId == advert.advertId);
+        require(msg.sender == advert.holderCoins.advertiser());
+
+        removeAdvertFromSubCategories(advert.advertId, advert.advertType, advert.categories);
+
+        advert.advertType = argAdvertType;
+        advert.url = argUrl;
+        advert.shortDesc = argShortDesc;
+        advert.imageUrl = argImageUrl;
+
+        createOfferWordsByAdvertType(argAdvertType);
+        updateSubCategories(advertId, argAdvertType, argCategories);
+
+        //clear old advert search data
+        updateAdvertSearchData(advert, advert.categories, new bytes32[](advert.categories.length));
+        //setup new advert search data
+        updateAdvertSearchData(advert, argCategories, argCategoryValues);
+
+        advert.rules = Rules(rulesMinWorth, rulesMaxWorth, rulesKey, rulesValue, rulesAction, rulesWorth);
+        mergeClientInfoKeys(rulesKey);
+
+        //todo need delete not used Advert types.
+        UpdateAdvert(
+            msg.sender,
+            advertIndexedId
         );
     }
 
@@ -311,6 +379,7 @@ contract BaseContract {
                         break;
                     }
                 }
+
                 if (foundItem == 0
                     && comparisonAdvertData(adverts[advertIds[j]], categories, categoryValues)
                     && comparisonAdvertRules(adverts[advertIds[j]])) {
@@ -341,7 +410,7 @@ contract BaseContract {
         private
         returns (bool)
     {
-        require(advert.rules.maxWorth > 0x0);
+        require(advert.rules.maxWorth > 0);
 
         if (tokenContract.balanceOf(advert.holderCoins) < advert.rules.maxWorth) {
             return false;
@@ -425,12 +494,14 @@ contract BaseContract {
     )
         private
     {
+        advert.categories = argCategories;
         for(uint i = 0; i < argCategories.length; i++) {
             advert.searchData[argCategories[i]] = argCategoryValues[i];
         }
     }
 
     function updateSubCategories(
+        uint advertId,
         bytes32 argAdvertType,
         bytes32[] argCategories
     )
@@ -442,8 +513,41 @@ contract BaseContract {
             if (subCategories.mapCategories[argCategories[i]].length == 0) {
                 subCategories.categories.push(argCategories[i]);
             }
-            subCategories.mapCategories[argCategories[i]].push(advertIndexedId);
+            subCategories.mapCategories[argCategories[i]].push(advertId);
         }
+    }
+
+    function removeAdvertFromSubCategories(
+        uint advertId,
+        bytes32 argAdvertType,
+        bytes32[] argCategories
+    )
+        private
+    {
+        SubCategories storage subCategories = rootSearch[argAdvertType];
+
+        for (uint i = 0; i < argCategories.length; i++) {
+            for(uint j = 0; j < subCategories.mapCategories[argCategories[i]].length; j++) {
+                if (subCategories.mapCategories[argCategories[i]][j] == advertId) {
+                    removeArrayItem(subCategories.mapCategories[argCategories[i]], j);
+                    if (subCategories.mapCategories[argCategories[i]].length == 0) {
+                        delete subCategories.categories;
+                        subCategories.categories.length = 0;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    function removeArrayItem(uint[] storage array, uint index) private {
+        if (index >= array.length) return;
+
+        for (uint i = index; i < array.length - 1; i++){
+            array[i] = array[i + 1];
+        }
+        delete array[array.length - 1];
+        array.length--;
     }
 
     function mergeClientInfoKeys(bytes32[] keys) private {
