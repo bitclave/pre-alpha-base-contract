@@ -7,6 +7,7 @@ const BaseContract = artifacts.require('BaseContract');
 const Questionnaire = artifacts.require('Questionnaire');
 const Offer = artifacts.require('OfferContract');
 const Search = artifacts.require('Search');
+const SearchContract = artifacts.require('SearchContract');
 const Client = artifacts.require('Client');
 const PreCATToken = artifacts.require('PreCATToken');
 const HolderAdCoins = artifacts.require('HolderAdCoins');
@@ -57,9 +58,10 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
         this.baseContract = await BaseContract.new();
 
         this.tokensContract = await PreCATToken.new();
-        this.baseContract.setTokensContract(this.tokensContract.address);
+        await this.baseContract.setTokensContract(this.tokensContract.address);
 
-        this.searchContract = Search.at(await this.baseContract.searchContract.call());
+        this.searchContract = await SearchContract.new(this.baseContract.address);
+        await this.baseContract.setSearchContract(this.searchContract.address);
     });
 
     it('add client data keys', async function () {
@@ -195,8 +197,8 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
         const searchData = [4, 4, 8];
         const listOfQuestionnaire = await this.baseContract.getQuestionnaires();
         const questionnaireAddress = Questionnaire.at(listOfQuestionnaire[0]).address;
-        
-        await this.searchContract.search(questionnaireAddress, searchData, {from: clientWallet});
+
+        await this.searchContract.searchOffers(questionnaireAddress, searchData, {from: clientWallet});
         const result = await this.searchContract.getLatestSearchResult({from: clientWallet});
         result.length.should.be.equal(0);
     });
@@ -225,7 +227,7 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
         const listOfQuestionnaire = await this.baseContract.getQuestionnaires();
         const questionnaireAddress = Questionnaire.at(listOfQuestionnaire[0]).address;
 
-        await this.searchContract.search(questionnaireAddress, searchData, {from: clientWallet});
+        await this.searchContract.searchOffers(questionnaireAddress, searchData, {from: clientWallet});
         const result = await this.searchContract.getLatestSearchResult({from: clientWallet});
         result.length.should.be.equal(1);
     });
@@ -236,6 +238,12 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
 
         const result = await this.searchContract.getLatestSearchResult({from: clientWallet});
         result.length.should.be.equal(1);
+        const offerReward = await clientContract.rewardOffersAddresses(0);
+        offerReward.should.be.equal(result[0]);
+
+        await clientContract.rewardOffersAddresses(1).should
+            .be
+            .rejectedWith(EVMThrow);
 
         const giveReward = await clientContract.getRewardByOffer(result[0]);
         //0.8 - this - rulesRewardPercents = [60 (salary), 20 (age), 20 (country)]; and matching 80%  (salary and age)
@@ -277,7 +285,7 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
         const listOfQuestionnaire = await this.baseContract.getQuestionnaires();
         const questionnaireAddress = Questionnaire.at(listOfQuestionnaire[0]).address;
 
-        await this.searchContract.search(questionnaireAddress, searchData, {from: clientWallet});
+        await this.searchContract.searchOffers(questionnaireAddress, searchData, {from: clientWallet});
         const result = await this.searchContract.getLatestSearchResult({from: clientWallet});
         result.length.should.be.equal(0);
     });

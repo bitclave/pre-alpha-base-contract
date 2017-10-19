@@ -25,7 +25,7 @@ contract Search is Ownable {
     uint public constant MIN_PERCENTAGE_SIMILARITY = 50;
     uint8 public constant MAX_COUNT_SHOWED_AD = 3; //start from 0 (zero);
 
-    function search(address questionnaire, uint32[] questionnaireSteps) external;
+    function searchOffers(address questionnaire, uint32[] questionnaireSteps) external;
 
     function getLatestSearchResult() external constant returns (address[]);
 

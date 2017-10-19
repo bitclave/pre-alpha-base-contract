@@ -38,13 +38,16 @@ contract BaseContract is Ownable {
     Search public searchContract;
 
     function BaseContract() {
-        searchContract = new SearchContract();
     }
 
     function setTokensContract(address tokenContractAddress) onlyOwner external {
         tokenContract = PreCATToken(tokenContractAddress);
     }
 
+	function setSearchContract(address searchContractAddress) onlyOwner external {
+        searchContract = Search(searchContractAddress);
+    }
+	
     function getAdvertiserOffers() public constant returns(address[]) {
         return mapAdvertiserOffers[msg.sender];
     }
@@ -104,7 +107,7 @@ contract BaseContract is Ownable {
         return clients[client];
     }
 
-    function addQuestionnaire(address questionnaire) external {
+    function addQuestionnaire(address questionnaire) onlyOwner external {
         for (uint i = 0; i < questionnaires.length; i++) {
             require(questionnaires[i] != questionnaire);
         }

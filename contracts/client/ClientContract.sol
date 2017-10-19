@@ -38,7 +38,7 @@ contract ClientContract is Client {
     function setRewardByOffer(address offerAddress, uint256 reward) public {
         require(msg.sender == baseContract || msg.sender == searchContract);
 
-        if (existRewardAddress(offerAddress)) {
+        if (!existRewardAddress(offerAddress)) {
             rewardOffersAddresses.push(offerAddress);
         }
         rewardOffers[offerAddress] = reward;

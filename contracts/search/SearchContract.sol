@@ -10,15 +10,15 @@ contract SearchContract is Search {
 
     BaseContract private baseContract;
 
-    function SearchContract(){
-        baseContract = BaseContract(msg.sender);
+    function SearchContract(address _baseContract) {
+        baseContract = BaseContract(_baseContract);
     }
 
     function getLatestSearchResult() external constant returns (address[]) {
         return latestSearchResult[msg.sender];
     }
 
-    function search(address questionnaire, uint32[] questionnaireSteps) external {
+    function searchOffers(address questionnaire, uint32[] questionnaireSteps) external {
         address clientAddress = baseContract.getClient(msg.sender);
 
         require(clientAddress != address(0));
@@ -108,6 +108,7 @@ contract SearchContract is Search {
     }
 
     function addOffer(address questionnaire, address offer) public {
+        require(msg.sender == address(baseContract) || msg.sender == owner);
         require(questionnaire != address(0));
         require(offer != address(0));
 
@@ -120,7 +121,7 @@ contract SearchContract is Search {
         offerByQuestionnaires[questionnaire].push(offerContract);
     }
 
-    function addClientDataKeys(bytes32[] keys) external {
+    function addClientDataKeys(bytes32[] keys) onlyOwner external {
         bool exist = false;
         for(uint i = 0; i < keys.length; i++) {
             exist = false;
