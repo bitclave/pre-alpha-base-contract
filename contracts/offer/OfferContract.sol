@@ -1,7 +1,7 @@
-pragma solidity ^0.4.0;
+pragma solidity ^0.4.11;
 
+import 'zeppelin-solidity/contracts/token/BasicToken.sol';
 import "../offer/Offer.sol";
-import '../PreCATToken.sol';
 import '../Questionnaire.sol';
 
 contract OfferContract is Offer {
@@ -25,7 +25,7 @@ contract OfferContract is Offer {
     }
 
     function isActive() public constant returns (bool){
-        return PreCATToken(tokenContract).balanceOf(address(this)) >= maxReward;
+        return BasicToken(tokenContract).balanceOf(address(this)) >= maxReward;
     }
 
     function setOfferInfo(string _url, string _shortDesc, string _imageUrl) public {

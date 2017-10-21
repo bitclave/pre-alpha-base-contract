@@ -1,12 +1,12 @@
-pragma solidity ^0.4.0;
+pragma solidity ^0.4.11;
 
 import '../client/Client.sol';
 
 
 contract ClientContract is Client {
 
-    address baseContract;
-    address searchContract;
+    address public baseContract;
+    address public searchContract;
 
     function ClientContract(address _baseContract, address _searchContract) {
         baseContract = _baseContract;

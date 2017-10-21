@@ -1,6 +1,5 @@
 pragma solidity ^0.4.11;
 
-import './PreCATToken.sol';
 import './offer/HolderAdCoins.sol';
 import './offer/Offer.sol';
 import './offer/OfferContract.sol';
@@ -13,7 +12,7 @@ import './helpers/Bytes32Utils.sol';
 import 'zeppelin-solidity/contracts/math/Math.sol';
 import 'zeppelin-solidity/contracts/math/SafeMath.sol';
 import 'zeppelin-solidity/contracts/ownership/Ownable.sol';
-
+import 'zeppelin-solidity/contracts/token/BasicToken.sol';
 
 contract BaseContract is Ownable {
     using Bytes32Utils for bytes32;
@@ -23,8 +22,6 @@ contract BaseContract is Ownable {
     event CreateOffer(address indexed advertiser, address indexed advert);
     event CreateClient(address indexed client);
 
-    address constant ADDRESS_CONTRACT_OF_TOKENS = 0xcF6137b80171540a9c6C10D3332E3de5d93B4EF7;
-
     mapping(address => Questionnaire) private questionnaireMap;
     address[] private questionnaires;
 
@@ -33,7 +30,7 @@ contract BaseContract is Ownable {
 
     mapping (address => Client) private clients;
 
-    PreCATToken public tokenContract = new PreCATToken('TOKEN', 'TKN'); //PreCATToken(ADDRESS_CONTRACT_OF_TOKENS);
+    BasicToken public tokenContract;
 
     Search public searchContract;
 
@@ -41,7 +38,7 @@ contract BaseContract is Ownable {
     }
 
     function setTokensContract(address tokenContractAddress) onlyOwner external {
-        tokenContract = PreCATToken(tokenContractAddress);
+        tokenContract = BasicToken(tokenContractAddress);
     }
 
 	function setSearchContract(address searchContractAddress) onlyOwner external {
@@ -66,12 +63,12 @@ contract BaseContract is Ownable {
         uint256 reward = client.getRewardByOffer(_offer);
         client.setRewardByOffer(_offer, 0x0);
 
-        offer.payReward(msg.sender, reward);
-
         uint8 showedCount = offer.getShowedCountByClient(msg.sender);
         if (showedCount < searchContract.MAX_COUNT_SHOWED_AD()) {
             offer.incrementShowedCount(msg.sender);
         }
+
+        offer.payReward(msg.sender, reward);
 
         ClientReward(_offer, msg.sender,  reward);
     }
@@ -103,11 +100,13 @@ contract BaseContract is Ownable {
         clients[msg.sender].transferOwnership(msg.sender);
     }
 
-    function getClient(address client) external constant returns (address) {
-        return clients[client];
+    function getClient(address ownerOfClientContract) external constant returns (address) {
+        return clients[ownerOfClientContract];
     }
 
     function addQuestionnaire(address questionnaire) onlyOwner external {
+        require(questionnaire != address(0x0));
+
         for (uint i = 0; i < questionnaires.length; i++) {
             require(questionnaires[i] != questionnaire);
         }

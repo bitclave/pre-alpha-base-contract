@@ -11,6 +11,8 @@ contract SearchContract is Search {
     BaseContract private baseContract;
 
     function SearchContract(address _baseContract) {
+        require(_baseContract != address(0x0));
+
         baseContract = BaseContract(_baseContract);
     }
 
@@ -21,7 +23,7 @@ contract SearchContract is Search {
     function searchOffers(address questionnaire, uint32[] questionnaireSteps) external {
         address clientAddress = baseContract.getClient(msg.sender);
 
-        require(clientAddress != address(0));
+        require(clientAddress != address(0x0));
         require(questionnaire != address(0x0));
 
         Client client = Client(clientAddress);

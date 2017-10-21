@@ -11,19 +11,19 @@ import 'zeppelin-solidity/contracts/math/SafeMath.sol';
 
 contract Search is Ownable {
 
+    uint8 public constant MIN_PERCENTAGE_SIMILARITY = 50;
+    uint8 public constant MAX_COUNT_SHOWED_AD = 3; //start from 0 (zero);
+
     // client => (offer => count). count - may be max == (MAX_COUNT_SHOWED_AD - 1).
-    mapping(address => mapping(address => uint8)) mapAdvertShowedCount;
+    mapping(address => mapping(address => uint8)) public mapAdvertShowedCount;
 
     //questionnaire => Offers
-    mapping(address => Offer[]) offerByQuestionnaires;
+    mapping(address => Offer[]) public offerByQuestionnaires;
 
     //client => offers
     mapping (address => address[]) internal latestSearchResult;
 
     bytes32[] internal clientDataKeys;
-
-    uint public constant MIN_PERCENTAGE_SIMILARITY = 50;
-    uint8 public constant MAX_COUNT_SHOWED_AD = 3; //start from 0 (zero);
 
     function searchOffers(address questionnaire, uint32[] questionnaireSteps) external;
 

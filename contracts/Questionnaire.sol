@@ -7,7 +7,7 @@ import './helpers/Bytes32Utils.sol';
 contract Questionnaire is Ownable {
     using Bytes32Utils for bytes32;
 
-    uint public constant MAX_VARIANT_COUNT = 30;
+    uint8 public constant MAX_VARIANT_COUNT = 30;
 
     struct Variant {
         bytes32 title;
@@ -60,7 +60,7 @@ contract Questionnaire is Ownable {
         return (titles, ids);
     }
 
-    function addVariant(uint8 step, bytes32 title) external onlyOwner {
+    function addVariant(uint8 step, bytes32 title) onlyOwner external {
         require(step < questionnaire.length && questionnaire.length > 0);
         require(questionnaire[step].variantIds.length + 1 <= MAX_VARIANT_COUNT);
 
@@ -70,7 +70,7 @@ contract Questionnaire is Ownable {
         questionnaire[step].variants[id] = title;
     }
 
-    function addNewStep(string _title, bool _isMultiselect) external onlyOwner {
+    function addNewStep(string _title, bool _isMultiselect) onlyOwner external {
         questionnaire.push(QuestionnaireStep({
             title: _title,
             variantIds: new uint[](0),
@@ -78,7 +78,7 @@ contract Questionnaire is Ownable {
         }));
     }
 
-    function setGroupName(bytes32 _groupName) external onlyOwner {
+    function setGroupName(bytes32 _groupName) onlyOwner external {
         groupName = _groupName;
     }
 

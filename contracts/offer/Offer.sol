@@ -1,4 +1,4 @@
-pragma solidity ^0.4.0;
+pragma solidity ^0.4.11;
 
 import "../offer/HolderAdCoins.sol";
 import 'zeppelin-solidity/contracts/ownership/Ownable.sol';
@@ -13,9 +13,9 @@ contract Offer is Ownable {
     uint32[] internal questionnaireSteps;
 
     HolderAdCoins public holderCoins;
-    string url;
-    string shortDesc;
-    string imageUrl;
+    string public url;
+    string public shortDesc;
+    string public imageUrl;
 
     uint256 public minReward;
     uint256 public maxReward;
