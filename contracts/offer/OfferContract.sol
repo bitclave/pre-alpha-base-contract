@@ -27,12 +27,13 @@ contract OfferContract is Offer {
         return BasicToken(tokenContract).balanceOf(address(this)) >= maxReward;
     }
 
-    function setOfferInfo(string _url, string _shortDesc, string _imageUrl) public {
+    function setOfferInfo(string _url, string _shortDesc, string _bucketId, string _fileId) public {
         require(msg.sender == advertiser);
 
         url = _url;
         shortDesc = _shortDesc;
-        imageUrl = _imageUrl;
+        bucketId = _bucketId;
+        fileId = _fileId;
     }
 
     function setRules(
@@ -70,8 +71,8 @@ contract OfferContract is Offer {
         tokenContract = _tokensContract;
     }
 
-    function getOffer() external constant returns (address, string, string, string) {
-        return (holderCoins, url, shortDesc, imageUrl);
+    function getOffer() external constant returns (address, string, string, string, string) {
+        return (holderCoins, url, shortDesc, bucketId, fileId);
     }
 
     function getClientDataKeysCount() external constant returns (uint) {

@@ -15,7 +15,12 @@ contract Offer is Ownable {
     HolderAdCoins public holderCoins;
     string public url;
     string public shortDesc;
-    string public imageUrl;
+    /**
+        About fields fileId and bucketId
+        @see https://github.com/Storj/storj.js/tree/master
+    */
+    string public bucketId;
+    string public fileId;
 
     uint256 public minReward;
     uint256 public maxReward;
@@ -26,7 +31,7 @@ contract Offer is Ownable {
 
     mapping(address => uint8) internal showedCount;
 
-    function setOfferInfo(string _url, string _shortDesc, string _imageUrl) public;
+    function setOfferInfo(string _url, string _shortDesc, string _bucketId, string _fileId) public;
 
     function setRules(
         uint256 _minReward,
@@ -42,7 +47,7 @@ contract Offer is Ownable {
 
     function setTokensContract(address tokensContract) onlyOwner external;
 
-    function getOffer() external constant returns (address, string, string, string);
+    function getOffer() external constant returns (address, string, string, string, string);
 
     function getClientDataKeysCount() external constant returns (uint);
 

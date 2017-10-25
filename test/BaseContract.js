@@ -50,7 +50,8 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
 
     const offerUrl = 'http://www.toyota-global.com/';
     const offerDesc = 'this is crossover of toyota motors. Best of the best!? =)';
-    const offerImageUrl = 'https://goo.gl/CLmzaC';
+    const offerBucketId = 'f86cd799439011507f1f77bc';
+    const offerFileId = '507f1f77bcf86cd799439011';
 
     const offerBalance = new BigNumber(10000).mul(preCatTokenIncrease);
 
@@ -140,7 +141,8 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
         await offer.setOfferInfo(
             offerUrl,
             offerDesc,
-            offerImageUrl,
+            offerBucketId,
+            offerFileId,
             {from: advertiserWallet});
 
         const clientDataKeys = await this.searchContract.getClientDataKeys();
@@ -156,10 +158,11 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
         );
 
         const updatedOffer = await offer.getOffer();
-        updatedOffer.length.should.be.equal(4);
+        updatedOffer.length.should.be.equal(5);
         updatedOffer[1].should.be.equal(offerUrl);
         updatedOffer[2].should.be.equal(offerDesc);
-        updatedOffer[3].should.be.equal(offerImageUrl);
+        updatedOffer[3].should.be.equal(offerBucketId);
+        updatedOffer[4].should.be.equal(offerFileId);
 
         const updatedRules = await offer.getRules();
         updatedRules.length.should.be.equal(6);
