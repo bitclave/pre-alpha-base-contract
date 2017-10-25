@@ -34,14 +34,14 @@ contract SearchContract is Search {
         Offer[] storage offers = offerByQuestionnaires[questionnaire];
         for(uint i = 0; i < offers.length; i++) {
             if (offers[i].holderCoins().getBalance() >= offers[i].maxReward()
-                    && mathByQuestionnaire(offers[i], questionnaire, questionnaireSteps)
+                    && matchByQuestionnaire(offers[i], questionnaire, questionnaireSteps)
                     && comparisonOfferRules(offers[i], client)) {
                 latestSearchResult[msg.sender].push(offers[i]);
             }
         }
     }
 
-    function mathByQuestionnaire(
+    function matchByQuestionnaire(
         Offer offer,
         address questionnaire,
         uint32[] questionnaireSteps
@@ -73,7 +73,7 @@ contract SearchContract is Search {
         bytes32 clientKeyValue;
         bytes32 offerKeyValue;
         uint8 action;
-        uint256 rewardPresents;
+        uint256 rewardPresents = offer.getClientDataKeysCount() == 0 ? 100 : 0;
 
         for (uint i = 0; i < offer.getClientDataKeysCount(); i++) {
             clientKeyValue = client.data(offer.userDataKeys(i));

@@ -81,10 +81,13 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
         for (let i = 0; i < steps.length; i++) {
             await questionnaire.addNewStep(steps[i], stepIsCheckbox[i]);
         }
+        const variantsBytes32 = [];
         for (let i = 0; i < variants.length; i++) {
+            variantsBytes32.length = 0;
             for (let j = 0; j < variants[i].length; j++) {
-                await questionnaire.addVariant(i, fromAscii(variants[i][j], 32));
+                variantsBytes32.push(fromAscii(variants[i][j], 32));
             }
+            await questionnaire.addVariants(i, variantsBytes32);
         }
 
         await this.baseContract.addQuestionnaire(questionnaire.address);

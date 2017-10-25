@@ -5,10 +5,9 @@ This repository is used to prototype Smart Contracts behaviours for BASE. The fo
 
 ## Setup
 for start with project install:
-nodejs latest (^8.4.0)
-truffle
-ethereumjs-testrpc
+1. npm install
 
 start:
-testrpc -u 0 -u 1
-truffle test
+1. testrpc -l 6000000 --g 21000000000
+<br>
+2. truffle test

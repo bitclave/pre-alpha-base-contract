@@ -14,7 +14,7 @@ contract('Questionnaire', function ([_, wallet]) {
     const groupName = 'cleaning';
     const steps = ['numbers of rooms?', 'How many times a week?', 'What time?'];
     const stepIsCheckbox = [false, false, true];
-    const variants =[
+    const variants = [
         ['one room', 'two room', 'three and more rooms'],
         ['once', 'every monday', 'only on weekends'],
         ['morning at 8 - 10 am', 'at noon', 'evening'],
@@ -41,11 +41,15 @@ contract('Questionnaire', function ([_, wallet]) {
     });
 
     it('add new variants', async function () {
+        const variantsBytes32 = [];
         for (let i = 0; i < variants.length; i++) {
+            variantsBytes32.length = 0;
+
             for (let j = 0; j < variants[i].length; j++) {
-                await this.contract.addVariant(i, fromAscii(variants[i][j], 32));
+                variantsBytes32.push(fromAscii(variants[i][j], 32));
             }
 
+            await this.contract.addVariants(i, variantsBytes32);
             let resultList = await this.contract.getVariantsOfStep(i);
             let title;
 
