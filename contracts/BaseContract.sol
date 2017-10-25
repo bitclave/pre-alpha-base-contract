@@ -73,8 +73,8 @@ contract BaseContract is Ownable {
         ClientReward(_offer, msg.sender,  reward);
     }
 
-    function createOffer(address questionnaire) external {
-        require(questionnaire > address(0x0));
+    function createOffer(address questionnaire) public {
+        require(questionnaire != address(0x0));
         require(questionnaireMap[questionnaire].getStepCount() > 0);
 
         Offer offer = new OfferContract(
@@ -83,7 +83,7 @@ contract BaseContract is Ownable {
             address(tokenContract)
         );
 
-        mapAdvertiserOffers[msg.sender].push(offer);
+        mapAdvertiserOffers[msg.sender].push(address(offer));
 
         searchContract.addOffer(questionnaire, address(offer));
 

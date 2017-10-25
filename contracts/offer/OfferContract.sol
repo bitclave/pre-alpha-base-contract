@@ -12,11 +12,10 @@ contract OfferContract is Offer {
         address _tokenContract
     )
     {
-        require(_advertiser > address(0x0));
-        require(_questionnaireAddress > address(0x0));
-        require(_tokenContract > address(0x0));
-
-        Questionnaire(_questionnaireAddress);
+        require(_advertiser != address(0x0));
+        require(_questionnaireAddress != address(0x0));
+        require(_tokenContract != address(0x0));
+        require(Questionnaire(_questionnaireAddress).getStepCount() > 0);
 
         advertiser = _advertiser;
 
