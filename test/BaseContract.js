@@ -18,6 +18,8 @@ const should = require('chai')
     .use(require('chai-bignumber')(web3.BigNumber))
     .should();
 
+const { Environment } = require('storj');
+
 const preCatTokenDecimals = new BigNumber(3);
 const preCatTokenIncrease = new BigNumber(10).pow(preCatTokenDecimals);
 
@@ -54,6 +56,87 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
     const offerFileId = '507f1f77bcf86cd799439011';
 
     const offerBalance = new BigNumber(10000).mul(preCatTokenIncrease);
+    var storj;
+
+    before(async function() {
+        storj = new Environment({
+            bridgeUrl: 'https://api.storj.io',
+            //bridgeUser: 'anton@bitclave.com',
+            //bridgePass: '3Z8-baQ-PHC-7rw',
+            encryptionKey: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
+            publicKey: '0370c3d549102a548d39e75759781eed1b79a182dbc610f03b4c23d736955fde8c',
+            privateKey: '1738ff4b31f2631847dc9b67d7337a647b8134ddf8b3aeeba9ed2892a0408267',
+            logLevel: 4
+        });
+
+        //
+        // Curl with email, sha256 of password and public key
+        // $ curl -u anton@bitclave.com:3f0421c7e383100f1b7c13bfe694b649811d967cccdcd1d1723aee535345527c -X POST --header 'Content-Type: application/json' --header 'Accept: application/json' -d '{"key":"0370c3d549102a548d39e75759781eed1b79a182dbc610f03b4c23d736955fde8c"}' 'https://api.storj.io/keys'
+        // {"user":"anton@bitclave.com","label":"","key":"0370c3d549102a548d39e75759781eed1b79a182dbc610f03b4c23d736955fde8c","id":"0370c3d549102a548d39e75759781eed1b79a182dbc610f03b4c23d736955fde8c"}
+        //
+    });
+
+    after(async function() {
+        storj.destroy();
+    });
+
+    const uploadStorj = async function(bucketId, uploadFilePath, fileName) {
+        const promise = new Promise(resolve => storj.storeFile(bucketId, uploadFilePath, {
+            filename: fileName,
+            progressCallback: function(progress, uploadedBytes, totalBytes) {
+                //console.log('Progress: %d, uploadedBytes: %d, totalBytes: %d',
+                //            progress, uploadedBytes, totalBytes);
+            },
+            finishedCallback: function(err, fileId) {
+                if (err) {
+                    return console.error(err);
+                }
+                console.log('File upload complete:', fileId);
+                resolve();
+            }
+        }));
+
+        await promise;
+    };
+
+    const downloadStorj = async function(bucketId, fileId, downloadFilePath) {
+        const promise = new Promise(resolve => storj.resolveFile(bucketId, fileId, downloadFilePath, {
+            progressCallback: function(progress, downloadedBytes, totalBytes) {
+                //console.log('Progress: %d, downloadedBytes: %d, totalBytes: %d',
+                //            progress, downloadedBytes, totalBytes);
+            },
+            finishedCallback: function(err) {
+                if (err) {
+                    return console.error(err);
+                }
+                console.log('File download complete');
+                resolve();
+            }
+        }));
+
+        await promise;
+    };
+
+    it.only('storj', async function() {
+
+        //await uploadStorj(offerBucketId, 'test/resources/1.png', 'test-ad.png');
+
+        storj.getInfo(function(err, result) {
+            if (err) {
+                return console.error(err);
+            }
+            console.log('info:', result);
+
+            storj.getBuckets(function(err, result) {
+                if (err) {
+                    return console.error(err);
+                }
+                console.log('buckets:', result);
+                //storj.destroy();
+            });
+        });
+
+    });
 
     it('init', async function () {
         this.baseContract = await BaseContract.new();
