@@ -1,19 +1,25 @@
 pragma solidity ^0.4.0;
 
 import '../search/Search.sol';
-import '../BaseContract.sol';
+import '../base/Base.sol';
 
 
 contract SearchContract is Search {
     using Bytes32Utils for bytes32;
     using SafeMath for uint256;
 
-    BaseContract private baseContract;
+    Base public baseContract;
 
     function SearchContract(address _baseContract) {
         require(_baseContract != address(0x0));
 
-        baseContract = BaseContract(_baseContract);
+        baseContract = Base(_baseContract);
+    }
+
+    function setBaseContract(address _baseContract) onlySameOwner public {
+        require(Base(_baseContract).owner() == owner);
+
+        baseContract = Base(_baseContract);
     }
 
     function getLatestSearchResult() external constant returns (address[]) {
@@ -32,7 +38,7 @@ contract SearchContract is Search {
         latestSearchResult[msg.sender].length = 0;
 
         Offer[] storage offers = offerByQuestionnaires[questionnaire];
-        for(uint i = 0; i < offers.length; i++) {
+        for (uint i = 0; i < offers.length; i++) {
             if (offers[i].holderCoins().getBalance() >= offers[i].maxReward()
                     && matchByQuestionnaire(offers[i], questionnaire, questionnaireSteps)
                     && comparisonOfferRules(offers[i], client)) {
@@ -58,7 +64,7 @@ contract SearchContract is Search {
             return false;
         }
 
-        for(uint8 i = 0; i < stepCount; i++) {
+        for (uint8 i = 0; i < stepCount; i++) {
             uint32 offerQuestionnaire = offer.questionnaireStep(i);
 
             if (questionnaireSteps[i] & offerQuestionnaire != questionnaireSteps[i]) {
@@ -114,7 +120,6 @@ contract SearchContract is Search {
         require(questionnaire != address(0));
         require(offer != address(0));
 
-        Questionnaire(questionnaire);
         Offer offerContract = Offer(offer);
         for (uint i = 0; i < offerByQuestionnaires[questionnaire].length; i++) {
             require(offerByQuestionnaires[questionnaire][i] != offer);
@@ -125,7 +130,7 @@ contract SearchContract is Search {
 
     function addClientDataKeys(bytes32[] keys) onlyOwner external {
         bool exist = false;
-        for(uint i = 0; i < keys.length; i++) {
+        for (uint i = 0; i < keys.length; i++) {
             exist = false;
             for (uint j = 0; j < clientDataKeys.length; j++) {
                 if (clientDataKeys[j] == keys[i]) {
@@ -139,7 +144,7 @@ contract SearchContract is Search {
         }
     }
 
-    function getClientDataKeys() external constant returns(bytes32[]) {
+    function getClientDataKeys() external constant returns (bytes32[]) {
         return clientDataKeys;
     }
 

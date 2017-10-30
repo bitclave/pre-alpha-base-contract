@@ -4,6 +4,7 @@ import 'zeppelin-solidity/contracts/token/BasicToken.sol';
 import "../offer/Offer.sol";
 import '../Questionnaire.sol';
 
+
 contract OfferContract is Offer {
 
     function OfferContract(
@@ -19,6 +20,7 @@ contract OfferContract is Offer {
 
         advertiser = _advertiser;
 
+        tokenContract = _tokenContract;
         setQuestionnaireAddress(_questionnaireAddress);
         holderCoins = new HolderAdCoins(_tokenContract, _advertiser);
     }
@@ -65,9 +67,13 @@ contract OfferContract is Offer {
         questionnaireAddress = _questionnaireAddress;
     }
 
-    function setTokensContract(address _tokensContract) onlyOwner external {
+    function setTokensContract(address _tokensContract) onlyOwner public {
         holderCoins.setTokensContract(_tokensContract);
         tokenContract = _tokensContract;
+    }
+
+    function getAdvertiser() constant returns (address) {
+        return advertiser;
     }
 
     function getOffer() external constant returns (address, string, string, string) {

@@ -60,6 +60,15 @@ contract Questionnaire is Ownable {
         return (titles, ids);
     }
 
+    function setVariants(uint8 step, bytes32[] titles) onlyOwner external {
+        require(questionnaire[step].variantIds.length == titles.length);
+
+        for(uint i = 0; i < titles.length; i++) {
+            uint id = 1 << (questionnaire[step].variantIds.length + 1);
+            questionnaire[step].variants[id] = titles[i];
+        }
+    }
+
     function addVariants(uint8 step, bytes32[] titles) onlyOwner external {
         require(step < questionnaire.length && questionnaire.length > 0);
         require(questionnaire[step].variantIds.length + 1 <= MAX_VARIANT_COUNT);

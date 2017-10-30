@@ -40,7 +40,9 @@ contract Offer is Ownable {
 
     function setQuestionnaireAddress(address _questionnaireAddress) public;
 
-    function setTokensContract(address tokensContract) onlyOwner external;
+    function setTokensContract(address tokensContract) onlyOwner public;
+
+    function getAdvertiser() constant returns (address);
 
     function getOffer() external constant returns (address, string, string, string);
 

@@ -1,15 +1,15 @@
 pragma solidity ^0.4.11;
 
-import 'zeppelin-solidity/contracts/ownership/Ownable.sol';
 import '../offer/Offer.sol';
 import '../client/Client.sol';
 import '../Questionnaire.sol';
+import '../helpers/SameOwner.sol';
 import '../helpers/Bytes32Utils.sol';
 import 'zeppelin-solidity/contracts/math/Math.sol';
 import 'zeppelin-solidity/contracts/math/SafeMath.sol';
 
 
-contract Search is Ownable {
+contract Search is SameOwner {
 
     uint8 public constant MIN_PERCENTAGE_SIMILARITY = 50;
     uint8 public constant MAX_COUNT_SHOWED_AD = 3; //start from 0 (zero);
@@ -24,6 +24,8 @@ contract Search is Ownable {
     mapping (address => address[]) internal latestSearchResult;
 
     bytes32[] internal clientDataKeys;
+
+    function setBaseContract(address _baseContract) onlySameOwner public;
 
     function searchOffers(address questionnaire, uint32[] questionnaireSteps) external;
 

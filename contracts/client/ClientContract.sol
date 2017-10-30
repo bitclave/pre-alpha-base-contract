@@ -10,7 +10,19 @@ contract ClientContract is Client {
 
     function ClientContract(address _baseContract, address _searchContract) {
         baseContract = _baseContract;
+        setSearchContract(_searchContract);
+    }
+
+    function setSearchContract(address _searchContract) public {
+        require(msg.sender == baseContract);
+
         searchContract = _searchContract;
+    }
+
+    function setBaseContract(address _baseContract) public {
+        require(msg.sender == baseContract);
+
+        baseContract = _baseContract;
     }
 
     function getData(bytes32[] keys) public constant returns (bytes32[]) {
@@ -52,15 +64,6 @@ contract ClientContract is Client {
         }
 
         return false;
-    }
-
-    function clearRewards() onlyOwner external {
-        for (uint i = 0; i < rewardOffersAddresses.length; i++) {
-            rewardOffers[rewardOffersAddresses[i]] = 0;
-        }
-
-        delete rewardOffersAddresses;
-        rewardOffersAddresses.length = 0;
     }
 
 }

@@ -3,6 +3,8 @@
 import {fromAscii} from './helpers/Bytes32Helper';
 import EVMThrow from './helpers/EVMThrow';
 
+const Gateway = artifacts.require('Gateway');
+const Base = artifacts.require('Base');
 const BaseContract = artifacts.require('BaseContract');
 const Questionnaire = artifacts.require('Questionnaire');
 const Offer = artifacts.require('OfferContract');
@@ -21,7 +23,7 @@ const should = require('chai')
 const preCatTokenDecimals = new BigNumber(3);
 const preCatTokenIncrease = new BigNumber(10).pow(preCatTokenDecimals);
 
-contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
+contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, secondClientWallet]) {
 
     const groupName = 'cleaning';
     const steps = ['numbers of rooms?', 'How many times a week?', 'What time?'];
@@ -55,12 +57,17 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
     const offerBalance = new BigNumber(10000).mul(preCatTokenIncrease);
 
     it('init', async function () {
-        this.baseContract = await BaseContract.new();
+        this.gateway = await Gateway.new();
+        await this.gateway.setBaseContract((await BaseContract.new()).address);
+
+        this.baseContract = Base.at(await this.gateway.baseContract());
 
         this.tokensContract = await PreCATToken.new();
         await this.baseContract.setTokensContract(this.tokensContract.address);
 
         this.searchContract = await SearchContract.new(this.baseContract.address);
+
+        await this.searchContract.setBaseContract(this.baseContract.address);
         await this.baseContract.setSearchContract(this.searchContract.address);
     });
 
@@ -111,6 +118,9 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
 
         const offer = Offer.at(offers[0]);
 
+        const advertiser = await offer.advertiser();
+        advertiser.should.be.equal(advertiserWallet);
+
         const offerQuestionnaire = await offer.questionnaireAddress();
         offerQuestionnaire.should.be.equal(questionnaireAddress);
     });
@@ -129,7 +139,7 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
     });
 
     it('other wallet no have offers', async function () {
-        const offers = await this.baseContract.getAdvertiserOffers({from: clientWallet});
+        const offers = await this.baseContract.getAdvertiserOffers({from: firstClientWallet});
         offers.length.should.be.equal(0)
     });
 
@@ -177,19 +187,19 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
     });
 
     it('create client and setup his data', async function () {
-        await this.baseContract.createClient({from: clientWallet});
-        await this.baseContract.createClient({from: clientWallet}).should
+        await this.baseContract.createClient({from: firstClientWallet});
+        await this.baseContract.createClient({from: firstClientWallet}).should
             .be
             .rejectedWith(EVMThrow);
 
-        const clientAddress = await this.baseContract.getClient(clientWallet);
+        const clientAddress = await this.baseContract.getClient(firstClientWallet);
 
         const clientContract = Client.at(clientAddress);
 
         const clientDataKeys = await this.searchContract.getClientDataKeys();
         offerUserDataValues.length.should.be.equal(clientDataKeys.length);
 
-        await clientContract.setData(clientDataKeys, offerUserDataValues, {from: clientWallet});
+        await clientContract.setData(clientDataKeys, offerUserDataValues, {from: firstClientWallet});
 
         const values = await clientContract.getData(clientDataKeys);
 
@@ -201,8 +211,8 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
         const listOfQuestionnaire = await this.baseContract.getQuestionnaires();
         const questionnaireAddress = Questionnaire.at(listOfQuestionnaire[0]).address;
 
-        await this.searchContract.searchOffers(questionnaireAddress, searchData, {from: clientWallet});
-        const result = await this.searchContract.getLatestSearchResult({from: clientWallet});
+        await this.searchContract.searchOffers(questionnaireAddress, searchData, {from: firstClientWallet});
+        const result = await this.searchContract.getLatestSearchResult({from: firstClientWallet});
         result.length.should.be.equal(0);
     });
 
@@ -230,16 +240,16 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
         const listOfQuestionnaire = await this.baseContract.getQuestionnaires();
         const questionnaireAddress = Questionnaire.at(listOfQuestionnaire[0]).address;
 
-        await this.searchContract.searchOffers(questionnaireAddress, searchData, {from: clientWallet});
-        const result = await this.searchContract.getLatestSearchResult({from: clientWallet});
+        await this.searchContract.searchOffers(questionnaireAddress, searchData, {from: firstClientWallet});
+        const result = await this.searchContract.getLatestSearchResult({from: firstClientWallet});
         result.length.should.be.equal(1);
     });
 
     it('give to client his reward after search', async function () {
-        const clientAddress = await this.baseContract.getClient(clientWallet);
+        const clientAddress = await this.baseContract.getClient(firstClientWallet);
         const clientContract = Client.at(clientAddress);
 
-        const result = await this.searchContract.getLatestSearchResult({from: clientWallet});
+        const result = await this.searchContract.getLatestSearchResult({from: firstClientWallet});
         result.length.should.be.equal(1);
         const offerReward = await clientContract.rewardOffersAddresses(0);
         offerReward.should.be.equal(result[0]);
@@ -252,9 +262,9 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
         //0.8 - this - rulesRewardPercents = [60 (salary), 20 (age), 20 (country)]; and matching 80%  (salary and age)
         giveReward.should.be.bignumber.equal(offerMaxReward.mul(0.8));
 
-        await this.baseContract.transferClientRewards(result[0], {from: clientWallet});
+        await this.baseContract.transferClientRewards(result[0], {from: firstClientWallet});
 
-        const clientBalance = await this.tokensContract.balanceOf(clientWallet);
+        const clientBalance = await this.tokensContract.balanceOf(firstClientWallet);
         clientBalance.should.be.bignumber.equal(giveReward);
 
         const reward = await clientContract.getRewardByOffer(result[0]);
@@ -272,14 +282,14 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
             fromAscii('10', 32),
             fromAscii('usa', 32)];
 
-        const clientAddress = await this.baseContract.getClient(clientWallet);
+        const clientAddress = await this.baseContract.getClient(firstClientWallet);
 
         const clientContract = Client.at(clientAddress);
 
         const clientDataKeys = await this.searchContract.getClientDataKeys();
         offerUserDataValues.length.should.be.equal(clientDataKeys.length);
 
-        await clientContract.setData(clientDataKeys, otherData, {from: clientWallet});
+        await clientContract.setData(clientDataKeys, otherData, {from: firstClientWallet});
 
         const values = await clientContract.getData(clientDataKeys);
         assert.deepEqual(values, otherData, 'incorrect array of Values');
@@ -288,10 +298,86 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
         const listOfQuestionnaire = await this.baseContract.getQuestionnaires();
         const questionnaireAddress = Questionnaire.at(listOfQuestionnaire[0]).address;
 
-        await this.searchContract.searchOffers(questionnaireAddress, searchData, {from: clientWallet});
-        const result = await this.searchContract.getLatestSearchResult({from: clientWallet});
+        await this.searchContract.searchOffers(questionnaireAddress, searchData, {from: firstClientWallet});
+        const result = await this.searchContract.getLatestSearchResult({from: firstClientWallet});
         result.length.should.be.equal(0);
     });
+
+    it('base contract on pause', async function () {
+        await this.baseContract.pause();
+
+        assert.ok(await this.baseContract.paused(), "incorrect state of contract: not paused");
+
+        await this.baseContract.createClient({from: secondClientWallet}).should
+            .be
+            .rejectedWith(EVMThrow);
+    });
+
+    it('clone base contract', async function () {
+        await this.gateway.setBaseContract((await BaseContract.new()).address);
+        this.baseContractSecond = Base.at(await this.gateway.baseContract());
+        await this.baseContract.cloneContract(this.baseContractSecond.address);
+        this.searchContract = Search.at(await this.baseContractSecond.searchContract());
+    });
+
+    it('destroy old base contract', async function () {
+        await this.baseContract.destroy();
+        const owner = await this.baseContract.owner();
+        owner.should.be.equal('0x');
+        this.baseContract = null;
+    });
+
+    makeSuite('validate cloned data:', async function () {
+        it('validate contract addresses', async function () {
+            this.tokensContract.address.should.be.equal(await this.baseContractSecond.tokenContract());
+            this.searchContract.address.should.be.equal(await this.baseContractSecond.searchContract());
+        });
+
+        it('other wallet no have offers', async function () {
+            const offers = await this.baseContractSecond.getAdvertiserOffers({from: firstClientWallet});
+            offers.length.should.be.equal(0)
+        });
+
+        it('wallet has offers', async function () {
+            const offers = await this.baseContractSecond.getAdvertiserOffers({from: advertiserWallet});
+            offers.length.should.be.equal(1);
+        });
+
+        it('has questionnaires', async function () {
+            const listOfQuestionnaire = await this.baseContractSecond.getQuestionnaires();
+
+            assert.equal(listOfQuestionnaire.length, 1, 'incorrect count of questionnaire');
+        });
+
+        it('client and search contract', async function () {
+            const otherData = [
+                fromAscii('1000', 32),
+                fromAscii('10', 32),
+                fromAscii('usa', 32)];
+
+            await this.baseContractSecond.createClient({from: firstClientWallet}).should
+                .be
+                .rejectedWith(EVMThrow);
+
+            const clientAddress = await this.baseContractSecond.getClient(firstClientWallet);
+
+            const clientContract = Client.at(clientAddress);
+
+            const clientDataKeys = await this.searchContract.getClientDataKeys();
+            offerUserDataValues.length.should.be.equal(clientDataKeys.length);
+
+            const values = await clientContract.getData(clientDataKeys);
+
+            assert.deepEqual(values, otherData, 'incorrect array of Values');
+        });
+
+    });
+
+    function makeSuite(name, tests) {
+        describe(name, async function () {
+            tests();
+        });
+    }
 
     assert.deepEqualNumber = function (arrayNumber1, arrayNumber2) {
         arrayNumber1.length.should.be.equal(arrayNumber2.length);

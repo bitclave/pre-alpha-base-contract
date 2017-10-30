@@ -8,6 +8,6 @@ for start with project install:
 1. npm install
 
 start:
-1. testrpc -l 6000000 --g 21000000000
+1. testrpc -l 6000000 -g 21000000000
 <br>
 2. truffle test
