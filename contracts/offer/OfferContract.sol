@@ -103,14 +103,6 @@ contract OfferContract is Offer {
         );
     }
 
-    function getShowedCountByClient(address client) public constant returns (uint8) {
-        return showedCount[client];
-    }
-
-    function incrementShowedCount(address client) public {
-        showedCount[client]++;
-    }
-
     function payReward(address to, uint256 reward) onlyOwner public {
         holderCoins.transfer(to, reward);
     }

@@ -16,58 +16,89 @@ contract SearchContract is Search {
         baseContract = Base(_baseContract);
     }
 
+    function createSearch(
+        address questionnaire,
+        uint32[] questionnaireSteps
+    )
+        whenNotPaused
+        public
+    {
+        address clientAddress = baseContract.getClient(msg.sender);
+
+        require(questionnaire != address(0x0));
+        require(clientAddress != address(0x0));
+
+        SearchRequest request = new SearchRequest(
+            questionnaire,
+            questionnaireSteps,
+            clientAddress
+        );
+
+        Client client = Client(clientAddress);
+        client.setSearchRequestAddress(address(request));
+
+        searchRequests.push(address(request));
+
+        SearchRequestCreated(msg.sender, address(request));
+    }
+
     function setBaseContract(address _baseContract) onlySameOwner public {
         require(Base(_baseContract).owner() == owner);
 
         baseContract = Base(_baseContract);
     }
 
-    function getLatestSearchResult() external constant returns (address[]) {
-        return latestSearchResult[msg.sender];
-    }
-
-    function searchOffers(address questionnaire, uint32[] questionnaireSteps) external {
+    function searchOffers(address searchRequestAddress) whenNotPaused external {
         address clientAddress = baseContract.getClient(msg.sender);
 
         require(clientAddress != address(0x0));
-        require(questionnaire != address(0x0));
+        require(searchRequestAddress != address(0x0));
 
         Client client = Client(clientAddress);
+        SearchRequest request = SearchRequest(searchRequestAddress);
 
-        delete latestSearchResult[msg.sender];
-        latestSearchResult[msg.sender].length = 0;
+        require (request.client() == clientAddress);
 
-        Offer[] storage offers = offerByQuestionnaires[questionnaire];
-        for (uint i = 0; i < offers.length; i++) {
+        address questionnaire = request.questionnaire();
+        Offer[] storage offers = offersByQuestionnaires[questionnaire];
+        Questionnaire questionnaireContract = Questionnaire(questionnaire);
+
+        uint size = questionnaireContract.getStepCount();
+        uint32[] memory answers = new uint32[](size);
+
+        for(uint i = 0; i < size; i++) {
+            answers[i] = request.answers(i);
+        }
+
+        for (i = 0; i < offers.length; i++) {
             if (offers[i].holderCoins().getBalance() >= offers[i].maxReward()
-                    && matchByQuestionnaire(offers[i], questionnaire, questionnaireSteps)
-                    && comparisonOfferRules(offers[i], client)) {
-                latestSearchResult[msg.sender].push(offers[i]);
+                && matchByQuestionnaire(offers[i], answers)
+                && comparisonOfferRules(offers[i], client)
+                && !request.existOffer(offers[i])) {
+
+                request.addResultOffer(offers[i]);
             }
         }
+
+        SearchFinished(searchRequestAddress);
     }
 
     function matchByQuestionnaire(
         Offer offer,
-        address questionnaire,
-        uint32[] questionnaireSteps
+        uint32[] answers
     )
         private
         constant
         returns (bool)
     {
-        Questionnaire questionnaireContract = Questionnaire(questionnaire);
-        uint stepCount = questionnaireContract.getStepCount();
-        require(questionnaireSteps.length == stepCount);
-
-        if (offer.questionnaireStepsCount() != stepCount) {
+        if (offer.questionnaireStepsCount() != answers.length) {
             return false;
         }
 
-        for (uint8 i = 0; i < stepCount; i++) {
+        for (uint8 i = 0; i < answers.length; i++) {
             uint32 offerQuestionnaire = offer.questionnaireStep(i);
 
-            if (questionnaireSteps[i] & offerQuestionnaire != questionnaireSteps[i]) {
+            if (answers[i] & offerQuestionnaire != answers[i]) {
                 return false;
             }
         }
@@ -96,7 +127,7 @@ contract SearchContract is Search {
             }
         }
 
-        uint8 showedCount = mapAdvertShowedCount[msg.sender][address(offer)];
+        uint8 showedCount = client.getNumberViewedOffer(address(offer));
 
         if (rewardPresents >= MIN_PERCENTAGE_SIMILARITY) {
             if (showedCount <= MAX_COUNT_SHOWED_AD) {
@@ -115,20 +146,23 @@ contract SearchContract is Search {
         return false;
     }
 
-    function addOffer(address questionnaire, address offer) public {
-        require(msg.sender == address(baseContract) || msg.sender == owner);
-        require(questionnaire != address(0));
+    function addOffer(address offer) onlySameOwner public {
         require(offer != address(0));
-
         Offer offerContract = Offer(offer);
-        for (uint i = 0; i < offerByQuestionnaires[questionnaire].length; i++) {
-            require(offerByQuestionnaires[questionnaire][i] != offer);
+        address questionnaire = offerContract.questionnaireAddress();
+
+        require(questionnaire != address(0x0));
+
+        uint size = offersByQuestionnaires[questionnaire].length;
+
+        for (uint i = 0; i < size; i++) {
+            require(offersByQuestionnaires[questionnaire][i] != offer);
         }
 
-        offerByQuestionnaires[questionnaire].push(offerContract);
+        offersByQuestionnaires[questionnaire].push(offerContract);
     }
 
-    function addClientDataKeys(bytes32[] keys) onlyOwner external {
+    function addClientDataKeys(bytes32[] keys) onlySameOwner public {
         bool exist = false;
         for (uint i = 0; i < keys.length; i++) {
             exist = false;
@@ -146,6 +180,48 @@ contract SearchContract is Search {
 
     function getClientDataKeys() external constant returns (bytes32[]) {
         return clientDataKeys;
+    }
+
+    function getSearchRequestsCount() onlySameOwner constant public returns (uint) {
+        return searchRequests.length;
+    }
+
+    function addOffers(address[] offers) onlySameOwner public {
+        for (uint i = 0; i < offers.length; i++) {
+            Offer offer = Offer(offers[i]);
+            offersByQuestionnaires[offer.questionnaireAddress()].push(offer);
+        }
+    }
+
+    function addSearchRequests(address[] searchRequestAddresses) onlySameOwner public {
+        searchRequests = searchRequestAddresses;
+
+        for (uint i = 0; i < searchRequests.length; i++) {
+            SearchRequest searchRequest = SearchRequest(searchRequests[i]);
+            address questionnaire = searchRequest.questionnaire();
+            requestsByQuestionnaires[questionnaire].push(searchRequest);
+        }
+    }
+
+    function cloneContract(address newSearchContract) onlyOwner public {
+        Search searchContract = Search(newSearchContract);
+
+        searchContract.setBaseContract(baseContract);
+        searchContract.addSearchRequests(searchRequests);
+
+        for (uint i = 0; i < searchRequests.length; i++) {
+            SearchRequest(searchRequests[i]).transferOwnership(searchContract);
+        }
+
+        address[] memory offers = new address[](baseContract.getOffersCount());
+
+        for(i = 0; i < offers.length; i++) {
+            offers[i] = baseContract.getOffer(i);
+        }
+
+        searchContract.addOffers(offers);
+
+        searchContract.addClientDataKeys(clientDataKeys);
     }
 
 }

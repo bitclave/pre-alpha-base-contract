@@ -34,7 +34,7 @@ contract BaseContract is Base {
         }
     }
 
-	function setSearchContract(address searchContractAddress) onlySameOwner whenNotPaused external {
+    function setSearchContract(address searchContractAddress) onlySameOwner whenNotPaused external {
         require(Search(searchContractAddress).owner() == owner);
 
         searchContract = Search(searchContractAddress);
@@ -51,6 +51,16 @@ contract BaseContract is Base {
 
     function getOffers() onlySameOwner constant external returns(address[]) {
         return offers;
+    }
+
+    function getOffer(uint index) onlySameOwner constant external returns(address) {
+        require(index < offers.length && index >= 0);
+
+        return offers[index];
+    }
+
+    function getOffersCount() onlySameOwner constant external returns(uint) {
+        return offers.length;
     }
 
     function getAdvertiserOffers() public constant returns(address[]) {
@@ -71,9 +81,9 @@ contract BaseContract is Base {
         uint256 reward = client.getRewardByOffer(_offer);
         client.setRewardByOffer(_offer, 0x0);
 
-        uint8 showedCount = offer.getShowedCountByClient(msg.sender);
+        uint8 showedCount = client.getNumberViewedOffer(_offer);
         if (showedCount < searchContract.MAX_COUNT_SHOWED_AD()) {
-            offer.incrementShowedCount(msg.sender);
+            client.incrementNumberViewedOffer(_offer);
         }
 
         offer.payReward(msg.sender, reward);
@@ -95,7 +105,7 @@ contract BaseContract is Base {
 
         offers.push(address(offer));
 
-        searchContract.addOffer(questionnaire, address(offer));
+        searchContract.addOffer(address(offer));
 
         CreateOffer(msg.sender, address(offer));
     }

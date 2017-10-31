@@ -24,8 +24,6 @@ contract Offer is Ownable {
     uint8[] public matchActions; //0 - '=='; 1 - '!='; 2 - '<='; 3 - '>='; 4 - '>'; 5 - '<'.
     uint8[] public mathRewardPercents; // 0-100; percents for calculate rewards. (100 - this is max value of all items).
 
-    mapping(address => uint8) internal showedCount;
-
     function setOfferInfo(string _url, string _shortDesc, string _imageUrl) public;
 
     function setRules(
@@ -56,10 +54,6 @@ contract Offer is Ownable {
         uint8[],
         uint8[]
     );
-
-    function getShowedCountByClient(address client) public constant returns (uint8);
-
-    function incrementShowedCount(address client) onlyOwner public;
 
     function payReward(address to, uint256 value) onlyOwner public;
 

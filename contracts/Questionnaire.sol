@@ -20,12 +20,18 @@ contract Questionnaire is Ownable {
         mapping(uint => bytes32) variants;
     }
 
+    bool public isActive;
+
     bytes32 public groupName;
 
     QuestionnaireStep[] private questionnaire;
 
-    function Questions() {
+    function Questionnaire() {
+        isActive = true;
+    }
 
+    function setIsActive(bool active) onlyOwner external {
+        isActive = active;
     }
 
     function getStepCount() external constant returns (uint) {
@@ -82,12 +88,18 @@ contract Questionnaire is Ownable {
 
     }
 
-    function addNewStep(string _title, bool _isMultiselect) onlyOwner external {
+    function addStep(string _title, bool _isMultiselect) onlyOwner external {
         questionnaire.push(QuestionnaireStep({
             title: _title,
             variantIds: new uint[](0),
             isMultiselect: _isMultiselect
         }));
+    }
+
+    function setStep(uint8 step, string _title, bool _isMultiselect) onlyOwner external {
+        require(step < questionnaire.length && step >= 0);
+        questionnaire[step].title = _title;
+        questionnaire[step].isMultiselect = _isMultiselect;
     }
 
     function setGroupName(bytes32 _groupName) onlyOwner external {

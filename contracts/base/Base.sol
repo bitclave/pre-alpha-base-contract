@@ -28,7 +28,6 @@ contract Base is SameOwner, Pausable, Destructible {
 
     Search public searchContract;
 
-
     function Base(){
 
     }
@@ -40,6 +39,10 @@ contract Base is SameOwner, Pausable, Destructible {
     function getClients() onlySameOwner constant external returns(address[]);
 
     function getOffers() onlySameOwner constant external returns(address[]);
+
+    function getOffer(uint index) onlySameOwner constant external returns(address);
+
+    function getOffersCount() onlySameOwner constant external returns(uint);
 
     function getAdvertiserOffers() public constant returns(address[]);
 

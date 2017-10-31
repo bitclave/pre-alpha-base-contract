@@ -6,8 +6,14 @@ import 'zeppelin-solidity/contracts/ownership/Ownable.sol';
 contract Client is Ownable {
 
     mapping (bytes32 => bytes32) public data;
+
     mapping (address => uint256) internal rewardOffers;
     address[] public rewardOffersAddresses;
+
+    //(offer => count). count - may be max == (MAX_COUNT_SHOWED_AD - 1).
+    mapping(address => uint8) numbersViewedOffer;
+
+    address[] internal searchRequests;
 
     function setSearchContract(address _searchContract) public;
 
@@ -20,5 +26,13 @@ contract Client is Ownable {
     function getRewardByOffer(address advertAddress) public constant returns (uint256);
 
     function setRewardByOffer(address advertAddress, uint256 reward) public;
+
+    function getNumberViewedOffer(address offerAddress) public constant returns(uint8);
+
+    function incrementNumberViewedOffer(address offerAddress) public;
+
+    function getSearchRequestAddresses() onlyOwner constant external returns (address[]);
+
+    function setSearchRequestAddress(address searchRequest) public;
 
 }

@@ -66,4 +66,23 @@ contract ClientContract is Client {
         return false;
     }
 
+    function getNumberViewedOffer(address offerAddress) public constant returns(uint8) {
+        return numbersViewedOffer[offerAddress];
+    }
+
+    function incrementNumberViewedOffer(address offerAddress) public {
+        require(msg.sender == baseContract);
+        numbersViewedOffer[offerAddress]++;
+    }
+
+    function getSearchRequestAddresses() onlyOwner constant external returns (address[]) {
+        return searchRequests;
+    }
+
+    function setSearchRequestAddress(address searchRequest) public {
+        require(msg.sender == searchContract);
+
+        searchRequests.push(searchRequest);
+    }
+
 }

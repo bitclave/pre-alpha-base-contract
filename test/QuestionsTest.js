@@ -32,7 +32,7 @@ contract('Questionnaire', function ([_, wallet]) {
 
     it('add new step', async function () {
         for (let i = 0; i < steps.length; i++) {
-            await this.contract.addNewStep(steps[i], stepIsCheckbox[i]);
+            await this.contract.addStep(steps[i], stepIsCheckbox[i]);
             let stepInfo = await this.contract.getStepInfo(i);
 
             stepInfo[0].should.be.equal(steps[i]);

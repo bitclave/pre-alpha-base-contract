@@ -9,6 +9,7 @@ const BaseContract = artifacts.require('BaseContract');
 const Questionnaire = artifacts.require('Questionnaire');
 const Offer = artifacts.require('OfferContract');
 const Search = artifacts.require('Search');
+const SearchRequest = artifacts.require('SearchRequest');
 const SearchContract = artifacts.require('SearchContract');
 const Client = artifacts.require('Client');
 const PreCATToken = artifacts.require('PreCATToken');
@@ -86,7 +87,7 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
         await questionnaire.setGroupName(fromAscii(groupName, 32));
 
         for (let i = 0; i < steps.length; i++) {
-            await questionnaire.addNewStep(steps[i], stepIsCheckbox[i]);
+            await questionnaire.addStep(steps[i], stepIsCheckbox[i]);
         }
         const variantsBytes32 = [];
         for (let i = 0; i < variants.length; i++) {
@@ -209,10 +210,17 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
     it('search with negative balance on offer holder of coins', async function () {
         const searchData = [4, 4, 8];
         const listOfQuestionnaire = await this.baseContract.getQuestionnaires();
-        const questionnaireAddress = Questionnaire.at(listOfQuestionnaire[0]).address;
 
-        await this.searchContract.searchOffers(questionnaireAddress, searchData, {from: firstClientWallet});
-        const result = await this.searchContract.getLatestSearchResult({from: firstClientWallet});
+        await this.searchContract.createSearch(listOfQuestionnaire[0], searchData, {from: firstClientWallet});
+
+        const clientAddress = await this.baseContract.getClient(firstClientWallet);
+        const clientContract = Client.at(clientAddress);
+
+        const addressSearchRequest = await getLastSearchRequest(clientContract, {from: firstClientWallet});
+
+        await this.searchContract.searchOffers(addressSearchRequest, {from: firstClientWallet});
+
+        const result = await getLastSearchResult(clientContract, {from: firstClientWallet});
         result.length.should.be.equal(0);
     });
 
@@ -235,21 +243,29 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
         balance.should.be.bignumber.equal(offerBalance);
     });
 
-    it('search with positive balance on offer holder of coins', async function () {
+    const searchWithExpectedResult = async function () {
         const searchData = [4, 4, 8];
         const listOfQuestionnaire = await this.baseContract.getQuestionnaires();
         const questionnaireAddress = Questionnaire.at(listOfQuestionnaire[0]).address;
 
-        await this.searchContract.searchOffers(questionnaireAddress, searchData, {from: firstClientWallet});
-        const result = await this.searchContract.getLatestSearchResult({from: firstClientWallet});
-        result.length.should.be.equal(1);
-    });
 
-    it('give to client his reward after search', async function () {
+        await this.searchContract.createSearch(questionnaireAddress, searchData, {from: firstClientWallet});
         const clientAddress = await this.baseContract.getClient(firstClientWallet);
         const clientContract = Client.at(clientAddress);
 
-        const result = await this.searchContract.getLatestSearchResult({from: firstClientWallet});
+        const addressSearchRequest = await getLastSearchRequest(clientContract, {from: firstClientWallet});
+        await this.searchContract.searchOffers(addressSearchRequest, {from: firstClientWallet});
+
+        const result = await getLastSearchResult(clientContract, {from: firstClientWallet});
+
+        result.length.should.be.equal(1);
+    };
+
+    const payRewardForClient = async function () {
+        const clientAddress = await this.baseContract.getClient(firstClientWallet);
+        const clientContract = Client.at(clientAddress);
+
+        const result = await getLastSearchResult(clientContract, {from: firstClientWallet});
         result.length.should.be.equal(1);
         const offerReward = await clientContract.rewardOffersAddresses(0);
         offerReward.should.be.equal(result[0]);
@@ -259,13 +275,18 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
             .rejectedWith(EVMThrow);
 
         const giveReward = await clientContract.getRewardByOffer(result[0]);
-        //0.8 - this - rulesRewardPercents = [60 (salary), 20 (age), 20 (country)]; and matching 80%  (salary and age)
-        giveReward.should.be.bignumber.equal(offerMaxReward.mul(0.8));
+        const viewedCount = await clientContract.getNumberViewedOffer(result[0]);
+
+        //80 - this is - rulesRewardPercents = [60 (salary), 20 (age), 20 (country)]; and matching 80%  (salary and age)
+        const defPercentsOfMatching = new BigNumber(80).div(viewedCount.plus(1));
+        const calculatedReward = offerMaxReward.mul(defPercentsOfMatching).div(100);
+        giveReward.should.be.bignumber.equal(calculatedReward);
+        const oldClientBalance = await this.tokensContract.balanceOf(firstClientWallet);
 
         await this.baseContract.transferClientRewards(result[0], {from: firstClientWallet});
 
         const clientBalance = await this.tokensContract.balanceOf(firstClientWallet);
-        clientBalance.should.be.bignumber.equal(giveReward);
+        clientBalance.should.be.bignumber.equal(oldClientBalance.plus(giveReward));
 
         const reward = await clientContract.getRewardByOffer(result[0]);
         reward.should.be.bignumber.equal(0);
@@ -273,8 +294,16 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
         const offer = Offer.at(result[0]);
         const holder = HolderAdCoins.at(await offer.holderCoins.call());
         const offerUpdatedBalance = await holder.getBalance();
-        offerUpdatedBalance.should.be.bignumber.equal(offerBalance.minus(giveReward));
-    });
+        offerUpdatedBalance.should.be.bignumber.equal(offerBalance.minus(clientBalance));
+    };
+
+    it('search with positive balance on offer holder of coins', searchWithExpectedResult);
+
+    it('give to client his reward after search', payRewardForClient);
+
+    it('search with positive balance on offer holder of coins', searchWithExpectedResult);
+
+    it('give to client his reward after search', payRewardForClient);
 
     it('change client data and search', async function () {
         const otherData = [
@@ -298,8 +327,14 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
         const listOfQuestionnaire = await this.baseContract.getQuestionnaires();
         const questionnaireAddress = Questionnaire.at(listOfQuestionnaire[0]).address;
 
-        await this.searchContract.searchOffers(questionnaireAddress, searchData, {from: firstClientWallet});
-        const result = await this.searchContract.getLatestSearchResult({from: firstClientWallet});
+        await this.searchContract.createSearch(questionnaireAddress, searchData, {from: firstClientWallet});
+
+        const addressSearchRequest = await getLastSearchRequest(clientContract, {from: firstClientWallet});
+
+        await this.searchContract.searchOffers(addressSearchRequest, {from: firstClientWallet});
+
+        const result = await getLastSearchResult(clientContract, {from: firstClientWallet});
+
         result.length.should.be.equal(0);
     });
 
@@ -327,10 +362,37 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
         this.baseContract = null;
     });
 
+    it('search contract on pause', async function () {
+        await this.searchContract.pause();
+
+        const searchData = [4, 4, 8];
+        const listOfQuestionnaire = await this.baseContractSecond.getQuestionnaires();
+
+        await this.searchContract.createSearch(listOfQuestionnaire[0], searchData,
+            {from: firstClientWallet}).should
+            .be
+            .rejectedWith(EVMThrow);
+    });
+
+    it('clone search contract', async function () {
+        const newSearchContract = await SearchContract.new(this.baseContractSecond.address);
+        await this.baseContractSecond.setSearchContract(newSearchContract.address);
+        this.searchContractSecond = Search.at(await this.baseContractSecond.searchContract());
+
+        await this.searchContract.cloneContract(this.searchContractSecond.address);
+    });
+
+    it('destroy old search contract', async function () {
+        await this.searchContract.destroy();
+        const owner = await this.searchContract.owner();
+        owner.should.be.equal('0x');
+        this.searchContract = null;
+    });
+
     makeSuite('validate cloned data:', async function () {
         it('validate contract addresses', async function () {
             this.tokensContract.address.should.be.equal(await this.baseContractSecond.tokenContract());
-            this.searchContract.address.should.be.equal(await this.baseContractSecond.searchContract());
+            this.searchContractSecond.address.should.be.equal(await this.baseContractSecond.searchContract());
         });
 
         it('other wallet no have offers', async function () {
@@ -363,7 +425,7 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
 
             const clientContract = Client.at(clientAddress);
 
-            const clientDataKeys = await this.searchContract.getClientDataKeys();
+            const clientDataKeys = await this.searchContractSecond.getClientDataKeys();
             offerUserDataValues.length.should.be.equal(clientDataKeys.length);
 
             const values = await clientContract.getData(clientDataKeys);
@@ -372,6 +434,23 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
         });
 
     });
+
+    const getLastSearchRequest = async function (client, params) {
+        const searchRequests = await client.getSearchRequestAddresses(params);
+
+        return searchRequests.length > 0 ? searchRequests[searchRequests.length - 1] : null;
+    };
+
+    const getLastSearchResult = async function (client, params) {
+        const address = await getLastSearchRequest(client, params);
+        if (address === null) {
+            return [];
+        }
+
+        const request = await SearchRequest.at(address);
+
+        return await request.getResult();
+    };
 
     function makeSuite(name, tests) {
         describe(name, async function () {
