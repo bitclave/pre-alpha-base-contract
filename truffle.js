@@ -1,23 +1,28 @@
 require('babel-register');
 require('babel-polyfill');
 
-module.exports = {
-    migrations_directory: "./migrations",
-    networks: {
-        development: {
-            host: "localhost",
-            port: 8545,
-            network_id: "*", // Match any network id
-            gas: 6000000,
-            gasPrice: 40000000000 // 4GWei
-        },
-        ropsten: {
-            host: "localhost",
-            port: 8546,
-            network_id: 3, //1 is the main blockchain and 2 is the old testnet, morden.
-            gas: 6000000,
-            gasPrice: 40000000000, // 4GWei
-            from: '0x960819Ad01c6C1c4D2aC246b07Ee35129f819AC7' //my test account address for deploy
-        }
-    }
-};
+const Provider = require('./helpers/Provider');
+
+const ProviderMain = Provider.createMainNetwork("type here your private key from owner address");
+const ProviderRopsten = Provider.createRopstenNetwork("type here your private key from owner address");
+const ProviderTestRpc = Provider.createTestRpcNetwork("type here your private key from owner address");
+
+module.exports = new NetworkConfiguration();
+
+function NetworkConfiguration() {
+    const networks = {};
+
+    networks[Provider.DEPLOY_MAIN_NETWORK_NAME] = ProviderMain.getNetwork();
+    networks[Provider.DEPLOY_ROPSTEN_NETWORK_NAME] = ProviderRopsten.getNetwork();
+    networks[Provider.DEPLOY_TESTRPC_NETWORK_NAME] = ProviderTestRpc.getNetwork();
+
+    networks['development'] = {
+        host: "localhost",
+        port: 8545,
+        network_id: "*", // Match any network id
+        gas: 6000000,
+        gasPrice: 21000000000 // 2GWei
+    };
+
+    return {networks: networks}
+}
