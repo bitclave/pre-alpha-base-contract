@@ -1,5 +1,5 @@
 const Gateway = artifacts.require("./Gateway.sol");
-const PreCATToken = artifacts.require("./PreCATToken.sol");
+const CAToken = artifacts.require("./CAToken.sol");
 const BaseContract = artifacts.require("./BaseContract.sol");
 const SearchContract = artifacts.require("./SearchContract.sol");
 const Provider = require('../helpers/Provider');
@@ -44,8 +44,8 @@ module.exports = function (deployer, network) {
         });
 
     }).then(function (cortege) {
-        return PreCATToken.new().then(function (tokens) {
-            console.log('PreCATToken deployed');
+        return CAToken.new().then(function (tokens) {
+            console.log('CAToken deployed');
             cortege.tokens = tokens;
             return cortege.getNext();
         });

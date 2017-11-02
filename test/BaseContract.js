@@ -12,7 +12,7 @@ const Search = artifacts.require('Search');
 const SearchRequest = artifacts.require('SearchRequest');
 const SearchContract = artifacts.require('SearchContract');
 const Client = artifacts.require('Client');
-const PreCATToken = artifacts.require('PreCATToken');
+const CAToken = artifacts.require('CAToken');
 const HolderAdCoins = artifacts.require('HolderAdCoins');
 
 const BigNumber = web3.BigNumber;
@@ -21,8 +21,8 @@ const should = require('chai')
     .use(require('chai-bignumber')(web3.BigNumber))
     .should();
 
-const preCatTokenDecimals = new BigNumber(3);
-const preCatTokenIncrease = new BigNumber(10).pow(preCatTokenDecimals);
+const сatokenDecimals = new BigNumber(3);
+const сatokenIncrease = new BigNumber(10).pow(сatokenDecimals);
 
 contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, secondClientWallet]) {
 
@@ -45,8 +45,8 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
         fromAscii('18', 32),
         fromAscii('russia', 32)];
 
-    const offerMinReward = new BigNumber(100).mul(preCatTokenIncrease);
-    const offerMaxReward = new BigNumber(2000).mul(preCatTokenIncrease);
+    const offerMinReward = new BigNumber(100).mul(сatokenIncrease);
+    const offerMaxReward = new BigNumber(2000).mul(сatokenIncrease);
 
     const rulesActions = [3, 3, 1]; //0 - '=='; 1 - '!='; 2 - '<='; 3 - '>='; 4 - '>'; 5 - '<'.
     const rulesRewardPercents = [60, 20, 20]; //total of items can be 100;
@@ -55,7 +55,7 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
     const offerDesc = 'this is crossover of toyota motors. Best of the best!? =)';
     const offerImageUrl = 'https://goo.gl/CLmzaC';
 
-    const offerBalance = new BigNumber(10000).mul(preCatTokenIncrease);
+    const offerBalance = new BigNumber(10000).mul(сatokenIncrease);
 
     it('init', async function () {
         this.gateway = await Gateway.new();
@@ -63,7 +63,7 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
 
         this.baseContract = Base.at(await this.gateway.baseContract());
 
-        this.tokensContract = await PreCATToken.new();
+        this.tokensContract = await CAToken.new();
         await this.baseContract.setTokensContract(this.tokensContract.address);
 
         this.searchContract = await SearchContract.new(this.baseContract.address);
