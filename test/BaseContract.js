@@ -52,8 +52,8 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
 
     const offerUrl = 'http://www.toyota-global.com/';
     const offerDesc = 'this is crossover of toyota motors. Best of the best!? =)';
-    const offerBucketId = 'f86cd799439011507f1f77bc';
-    const offerFileId = '507f1f77bcf86cd799439011';
+    var offerBucketId = 'f86cd799439011507f1f77bc';
+    var offerFileId = '507f1f77bcf86cd799439011';
 
     const offerBalance = new BigNumber(10000).mul(preCatTokenIncrease);
     var storj;
@@ -61,11 +61,11 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
     before(async function() {
         storj = new Environment({
             bridgeUrl: 'https://api.storj.io',
-            //bridgeUser: 'anton@bitclave.com',
-            //bridgePass: '3Z8-baQ-PHC-7rw',
+            bridgeUser: 'anton@bitclave.com',
+            bridgePass: '3Z8-baQ-PHC-7rw', // 3f0421c7e383100f1b7c13bfe694b649811d967cccdcd1d1723aee535345527c
             encryptionKey: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
-            publicKey: '0370c3d549102a548d39e75759781eed1b79a182dbc610f03b4c23d736955fde8c',
-            privateKey: '1738ff4b31f2631847dc9b67d7337a647b8134ddf8b3aeeba9ed2892a0408267',
+            //publicKey: '0370c3d549102a548d39e75759781eed1b79a182dbc610f03b4c23d736955fde8c',
+            //privateKey: '1738ff4b31f2631847dc9b67d7337a647b8134ddf8b3aeeba9ed2892a0408267',
             logLevel: 4
         });
 
@@ -80,7 +80,18 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
         storj.destroy();
     });
 
-    const uploadStorj = async function(bucketId, uploadFilePath, fileName) {
+    const storj_getBuckets = async function(storj) {
+        var buckets;
+        const promise = new Promise(resolve => storj.getBuckets(function(err, result) {
+            buckets = result;
+            resolve();
+        }));
+        await promise;
+        return buckets;
+    }
+
+    const storj_upload = async function(storj, bucketId, uploadFilePath, fileName) {
+        var result;
         const promise = new Promise(resolve => storj.storeFile(bucketId, uploadFilePath, {
             filename: fileName,
             progressCallback: function(progress, uploadedBytes, totalBytes) {
@@ -92,14 +103,17 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
                     return console.error(err);
                 }
                 console.log('File upload complete:', fileId);
+                result = fileId;
                 resolve();
             }
         }));
 
         await promise;
+        return result;
     };
 
-    const downloadStorj = async function(bucketId, fileId, downloadFilePath) {
+    const storj_download = async function(storj, bucketId, fileId, downloadFilePath) {
+        var result = false;
         const promise = new Promise(resolve => storj.resolveFile(bucketId, fileId, downloadFilePath, {
             progressCallback: function(progress, downloadedBytes, totalBytes) {
                 //console.log('Progress: %d, downloadedBytes: %d, totalBytes: %d',
@@ -110,32 +124,43 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
                     return console.error(err);
                 }
                 console.log('File download complete');
+                result = true;
                 resolve();
             }
         }));
 
         await promise;
+        return result;
     };
 
     it.only('storj', async function() {
 
-        //await uploadStorj(offerBucketId, 'test/resources/1.png', 'test-ad.png');
+        const buckets = await storj_getBuckets(storj);
+        offerBucketId = buckets[0].id;
+        console.log('buckets:', buckets);
 
-        storj.getInfo(function(err, result) {
-            if (err) {
-                return console.error(err);
-            }
-            console.log('info:', result);
+        offerFileId = await storj_upload(storj, offerBucketId, 'test/resources/1.png', 'test-ad-' + Math.random() + '.png');
+        const finished = await storj_download(storj, offerBucketId, offerFileId, 'test/resources/1-out.png');
 
-            storj.getBuckets(function(err, result) {
-                if (err) {
-                    return console.error(err);
-                }
-                console.log('buckets:', result);
-                //storj.destroy();
-            });
-        });
+        // const promise = new Promise(resolve => storj.getInfo(function(err, result) {
+        //     if (err) {
+        //         resolve();
+        //         return console.error(err);
+        //     }
+        //     console.log('info:', result);
 
+        //     storj.getBuckets(function(err, result) {
+        //         if (err) {
+        //             resolve();
+        //             return console.error(err);
+        //         }
+        //         console.log('buckets:', result);
+        //         //storj.destroy();
+        //         resolve();
+        //     });
+        // }));
+
+        //await promise;
     });
 
     it('init', async function () {
