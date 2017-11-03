@@ -3,6 +3,9 @@
 import {fromAscii} from './helpers/Bytes32Helper';
 import EVMThrow from './helpers/EVMThrow';
 
+var fs = require('fs');
+var crypto = require("crypto");
+
 const BaseContract = artifacts.require('BaseContract');
 const Questionnaire = artifacts.require('Questionnaire');
 const Offer = artifacts.require('OfferContract');
@@ -66,7 +69,7 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
             encryptionKey: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
             //publicKey: '0370c3d549102a548d39e75759781eed1b79a182dbc610f03b4c23d736955fde8c',
             //privateKey: '1738ff4b31f2631847dc9b67d7337a647b8134ddf8b3aeeba9ed2892a0408267',
-            logLevel: 4
+            logLevel: 0
         });
 
         //
@@ -133,14 +136,22 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
         return result;
     };
 
-    it.only('storj', async function() {
+    it('storj', async function() {
 
         const buckets = await storj_getBuckets(storj);
         offerBucketId = buckets[0].id;
         console.log('buckets:', buckets);
 
         offerFileId = await storj_upload(storj, offerBucketId, 'test/resources/1.png', 'test-ad-' + Math.random() + '.png');
-        const finished = await storj_download(storj, offerBucketId, offerFileId, 'test/resources/1-out.png');
+        const finished = await storj_download(storj, offerBucketId, offerFileId, 'test/resources/1-out'+offerFileId+'.png');
+        finished.should.eql(true);
+
+        var buf1 = fs.readFileSync('test/resources/1.png');
+        var buf2 = fs.readFileSync('test/resources/1-out'+offerFileId+'.png');
+
+        const buf1Hash = crypto.createHash('sha256').update(buf1).digest();
+        const buf2Hash = crypto.createHash('sha256').update(buf2).digest();
+        buf1Hash.should.eql(buf2Hash);
 
         // const promise = new Promise(resolve => storj.getInfo(function(err, result) {
         //     if (err) {
@@ -285,6 +296,61 @@ contract('BaseContract', function ([_, advertiserWallet, clientWallet]) {
 
         assert.deepEqualNumber(updatedRules[4], rulesActions);
         assert.deepEqualNumber(updatedRules[5], rulesRewardPercents);
+    });
+
+    // In this test we verify that we can create OFFER that holds reference to PNG image that is stored in StorJ
+    // The following are the verification steps
+    // 1. We upload PNG image to Storj
+    // 2. We create OFFER and update its properties to point to PNG in Storj
+    // 3. We store OFFER in blockchain
+    // 4. We retrieve OFFER from blockchain
+    // 5. We read OFFER properties and get the IDs of PNG image in Storg
+    // 6. We read PNG file
+    // 7. We compare that PNG file is identical to the original file 
+    it('update offer with StorJ', async function () {
+
+        // get Storj buckets and select 1st bucket for OFFER upadte
+        const buckets = await storj_getBuckets(storj);
+        offerBucketId = buckets[0].id;
+        console.log('buckets:', buckets);
+
+        // upload PNG image to StorJ
+        offerFileId = await storj_upload(storj, offerBucketId, 'test/resources/1.png', 'test-ad-' + Math.random() + '.png');
+
+        const offers = await this.baseContract.getAdvertiserOffers({from: advertiserWallet});
+        const offer = Offer.at(offers[0]);
+
+        // set StorJ bucket and Storj FileId in OFFER
+        await offer.setOfferInfo(
+            offerUrl,
+            offerDesc,
+            offerBucketId,
+            offerFileId,
+            {from: advertiserWallet});
+
+        // verify OFFER set operation
+        const updatedOffer = await offer.getOffer();
+        updatedOffer.length.should.be.equal(5);
+        updatedOffer[1].should.be.equal(offerUrl);
+        updatedOffer[2].should.be.equal(offerDesc);
+        updatedOffer[3].should.be.equal(offerBucketId);
+        updatedOffer[4].should.be.equal(offerFileId);
+
+    
+        // read PNG image from StorJ
+        const finished = await storj_download(storj, offerBucketId, offerFileId, 'test/resources/1-out'+offerFileId+'.png');
+        finished.should.eql(true);
+
+        // verify the PNG image is identical before and after storing in StorJ
+        var buf1 = fs.readFileSync('test/resources/1.png');
+        var buf2 = fs.readFileSync('test/resources/1-out'+offerFileId+'.png');
+
+        // compute hash 
+        const buf1Hash = crypto.createHash('sha256').update(buf1).digest();
+        const buf2Hash = crypto.createHash('sha256').update(buf2).digest();
+        buf1Hash.should.eql(buf2Hash);
+    
+ 
     });
 
     it('create client and setup his data', async function () {
