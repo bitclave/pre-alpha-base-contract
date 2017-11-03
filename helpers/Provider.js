@@ -52,7 +52,6 @@ function Provider(networkModel, networkUrl, privateKey) {
         engine.addProvider(new WalletSubprovider(wallet, {}));
         engine.addProvider(new Web3Subprovider(new Web3.providers.HttpProvider(networkUrl)));
         networkModel.from = '0x' + wallet.getAddress().toString('hex');
-        engine['test'] ='abs';
         networkModel.provider = engine;
         this._network = networkModel;
 

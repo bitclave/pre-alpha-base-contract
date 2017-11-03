@@ -22,11 +22,9 @@ contract BaseContract is Base {
     }
 
     function setTokensContract(address tokenContractAddress) onlySameOwner whenNotPaused external {
-        require(Ownable(tokenContractAddress).owner() == owner);
-
         tokenContract = BasicToken(tokenContractAddress);
 
-        for(uint i = 0; i < offers.length; i++ ){
+        for (uint i = 0; i < offers.length; i++){
             Offer offer = Offer(offers[i]);
             if (address(offer.tokenContract) != address(tokenContractAddress)) {
                 offer.setTokensContract(tokenContract);

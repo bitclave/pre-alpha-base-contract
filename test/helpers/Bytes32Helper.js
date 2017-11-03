@@ -1,6 +1,6 @@
 export function fromAscii(str, padding) {
     let result = web3.fromAscii(str, padding);
-    //web3.fromAscii(str, pading); - incorrect work and not add padding;
+    //web3.fromAscii(str, padding); - incorrect work and not add padding;
     return result + "0".repeat(padding * 2 - result.length + 2);
 }
 
