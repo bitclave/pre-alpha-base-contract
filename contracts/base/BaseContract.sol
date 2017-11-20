@@ -4,10 +4,10 @@ import '../base/Base.sol';
 import '../offer/HolderAdCoins.sol';
 import '../offer/Offer.sol';
 import '../offer/OfferContract.sol';
-import '../client/ClientContract.sol';
 import '../Questionnaire.sol';
 import '../search/Search.sol';
 import '../search/SearchContract.sol';
+import '../search/SearchRequest.sol';
 import '../helpers/Bytes32Utils.sol';
 import 'zeppelin-solidity/contracts/math/Math.sol';
 import 'zeppelin-solidity/contracts/math/SafeMath.sol';
@@ -36,15 +36,6 @@ contract BaseContract is Base {
         require(Search(searchContractAddress).owner() == owner);
 
         searchContract = Search(searchContractAddress);
-
-        for (uint i = 0; i< clientList.length; i++) {
-            Client client = Client(clientList[i]);
-            client.setSearchContract(address(searchContractAddress));
-        }
-    }
-
-    function getClients() onlySameOwner constant external returns(address[]) {
-        return clientList;
     }
 
     function getOffers() onlySameOwner constant external returns(address[]) {
@@ -69,19 +60,25 @@ contract BaseContract is Base {
         return questionnaires;
     }
 
-    function transferClientRewards(address _offer) whenNotPaused public {
-        Client client = clients[msg.sender];
+    function transferClientRewards(address _offer, address searchRequest) whenNotPaused public {
+        require(searchRequest != address(0x0));
+        require(_offer != address(0x0));
+
+        SearchRequest request = SearchRequest(searchRequest);
+        require(msg.sender == request.owner());
+
         Offer offer = Offer(_offer);
 
-        require(client.getRewardByOffer(_offer) > 0);
-        require(offer.holderCoins().getBalance() >= client.getRewardByOffer(_offer));
+        uint256 reward = request.getRewardByOffer(_offer);
 
-        uint256 reward = client.getRewardByOffer(_offer);
-        client.setRewardByOffer(_offer, 0x0);
+        require(reward > 0);
+        require(offer.holderCoins().getBalance() >= reward);
 
-        uint8 showedCount = client.getNumberViewedOffer(_offer);
+        request.setRewardByOffer(_offer, 0x0);
+
+        uint8 showedCount = request.getNumberOfViews(_offer);
         if (showedCount < searchContract.MAX_COUNT_SHOWED_AD()) {
-            client.incrementNumberViewedOffer(_offer);
+            request.incrementNumberViewedOffer(_offer);
         }
 
         offer.payReward(msg.sender, reward);
@@ -108,21 +105,6 @@ contract BaseContract is Base {
         CreateOffer(msg.sender, address(offer));
     }
 
-    function createClient() whenNotPaused external {
-        require(clients[msg.sender] == address(0x0));
-
-        clients[msg.sender] = new ClientContract(address(this), address(searchContract));
-        clients[msg.sender].transferOwnership(msg.sender);
-
-        clientList.push(address(clients[msg.sender]));
-
-        CreateClient(msg.sender, address(clients[msg.sender]));
-    }
-
-    function getClient(address ownerOfClientContract) external constant returns (address) {
-        return clients[ownerOfClientContract];
-    }
-
     function addQuestionnaire(address questionnaire) onlySameOwner whenNotPaused external {
         require(questionnaire != address(0x0));
 
@@ -140,14 +122,7 @@ contract BaseContract is Base {
         Base baseContract = Base(newBaseContract);
         baseContract.setQuestionnaires(questionnaires);
 
-        for(uint i = 0; i < clientList.length; i++) {
-            Client client = Client(clientList[i]);
-            client.setBaseContract(address(baseContract));
-        }
-
-        baseContract.setClients(clientList);
-
-        for(i = 0; i < offers.length; i++) {
+        for(uint i = 0; i < offers.length; i++) {
             Offer offer = Offer(offers[i]);
             offer.transferOwnership(address(baseContract));
         }
@@ -162,14 +137,6 @@ contract BaseContract is Base {
 
     function setQuestionnaires(address[] questionnaireContracts) onlySameOwner whenNotPaused public {
         questionnaires = questionnaireContracts;
-    }
-
-    function setClients(address[] clientContracts) onlySameOwner whenNotPaused public {
-        clientList = clientContracts;
-        for(uint i = 0; i < clientList.length; i++) {
-            Client client = Client(clientList[i]);
-            clients[client.owner()] = client;
-        }
     }
 
     function setOffers(address[] offersContracts) onlySameOwner whenNotPaused public {

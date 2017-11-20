@@ -16,48 +16,26 @@ contract SearchContract is Search {
         baseContract = Base(_baseContract);
     }
 
-    function createSearch(
-        address questionnaire,
-        uint32[] questionnaireSteps
-    )
-        whenNotPaused
-        public
-    {
-        address clientAddress = baseContract.getClient(msg.sender);
-
-        require(questionnaire != address(0x0));
-        require(clientAddress != address(0x0));
-
-        SearchRequest request = new SearchRequest(
-            questionnaire,
-            questionnaireSteps,
-            clientAddress
-        );
-
-        Client client = Client(clientAddress);
-        client.setSearchRequestAddress(address(request));
-
-        searchRequests.push(address(request));
-
-        SearchRequestCreated(msg.sender, address(request));
-    }
-
     function setBaseContract(address _baseContract) onlySameOwner public {
         require(Base(_baseContract).owner() == owner);
 
         baseContract = Base(_baseContract);
     }
 
-    function searchOffers(address searchRequestAddress) whenNotPaused external {
-        address clientAddress = baseContract.getClient(msg.sender);
-
-        require(clientAddress != address(0x0));
+    function searchOffers(
+        address searchRequestAddress,
+        bytes32[] clientKeys,
+        bytes32[] clientValues
+    )
+    whenNotPaused
+    external
+    {
+        require(clientKeys.length == clientValues.length);
         require(searchRequestAddress != address(0x0));
 
-        Client client = Client(clientAddress);
         SearchRequest request = SearchRequest(searchRequestAddress);
 
-        require (request.client() == clientAddress);
+        require(msg.sender == request.owner());
 
         address questionnaire = request.questionnaire();
         Offer[] storage offers = offersByQuestionnaires[questionnaire];
@@ -73,7 +51,7 @@ contract SearchContract is Search {
         for (i = 0; i < offers.length; i++) {
             if (offers[i].holderCoins().getBalance() >= offers[i].maxReward()
                 && matchByQuestionnaire(offers[i], answers)
-                && comparisonOfferRules(offers[i], client)
+                && comparisonOfferRules(request, offers[i], clientKeys, clientValues)
                 && !request.existOffer(offers[i])) {
 
                 request.addResultOffer(offers[i]);
@@ -106,43 +84,53 @@ contract SearchContract is Search {
         return true;
     }
 
-    function comparisonOfferRules(Offer offer, Client client) private returns (bool) {
-        bytes32 clientKeyValue;
+    function comparisonOfferRules(
+        SearchRequest request,
+        Offer offer,
+        bytes32[] clientKeys,
+        bytes32[] clientValues
+    )
+    private
+    returns (bool)
+    {
         bytes32 offerKeyValue;
         uint8 action;
         uint256 rewardPresents = offer.getClientDataKeysCount() == 0 ? 100 : 0;
 
         for (uint i = 0; i < offer.getClientDataKeysCount(); i++) {
-            clientKeyValue = client.data(offer.userDataKeys(i));
-            offerKeyValue = offer.userDataValues(i);
-            action = offer.matchActions(i);
-            //0 - '=='; 1 - '!='; 2 - '<='; 3 - '>='; 4 - '>'; 5 - '<'.
-            if ((action == 0 && clientKeyValue == offerKeyValue)
-            || (action == 1 && clientKeyValue != offerKeyValue)
-            || (action == 2 && clientKeyValue.toUInt() <= offerKeyValue.toUInt())
-            || (action == 3 && clientKeyValue.toUInt() >= offerKeyValue.toUInt())
-            || (action == 4 && clientKeyValue.toUInt() > offerKeyValue.toUInt())
-            || (action == 5 && clientKeyValue.toUInt() < offerKeyValue.toUInt())) {
-                rewardPresents += offer.mathRewardPercents(i);
+            for(uint j = 0; j < clientKeys.length; j++) {
+                if(offer.userDataKeys(i) == clientKeys[j]) {
+                    offerKeyValue = offer.userDataValues(i);
+                    action = offer.matchActions(i);
+                    //0 - '=='; 1 - '!='; 2 - '<='; 3 - '>='; 4 - '>'; 5 - '<'.
+                    if ((action == 0 && clientValues[j] == offerKeyValue)
+                    || (action == 1 && clientValues[j] != offerKeyValue)
+                    || (action == 2 && clientValues[j].toUInt() <= offerKeyValue.toUInt())
+                    || (action == 3 && clientValues[j].toUInt() >= offerKeyValue.toUInt())
+                    || (action == 4 && clientValues[j].toUInt() > offerKeyValue.toUInt())
+                    || (action == 5 && clientValues[j].toUInt() < offerKeyValue.toUInt())) {
+                        rewardPresents += offer.mathRewardPercents(i);
+                    }
+                }
             }
         }
 
-        uint8 showedCount = client.getNumberViewedOffer(address(offer));
+        uint8 showedCount = 0;request.getNumberOfViews(address(offer));
 
         if (rewardPresents >= MIN_PERCENTAGE_SIMILARITY) {
             if (showedCount <= MAX_COUNT_SHOWED_AD) {
                 rewardPresents = rewardPresents.div(showedCount + 1);
                 uint256 rewards = offer.maxReward().mul(rewardPresents).div(100);
-                client.setRewardByOffer(address(offer), Math.max256(rewards, offer.minReward()));
+                request.setRewardByOffer(address(offer), Math.max256(rewards, offer.minReward()));
 
             } else {
-                client.setRewardByOffer(address(offer), 0);
+                request.setRewardByOffer(address(offer), 0);
             }
 
             return true;
         }
 
-        client.setRewardByOffer(address(offer), 0);
+        request.setRewardByOffer(address(offer), 0);
         return false;
     }
 
@@ -182,10 +170,6 @@ contract SearchContract is Search {
         return clientDataKeys;
     }
 
-    function getSearchRequestsCount() onlySameOwner constant public returns (uint) {
-        return searchRequests.length;
-    }
-
     function addOffers(address[] offers) onlySameOwner public {
         for (uint i = 0; i < offers.length; i++) {
             Offer offer = Offer(offers[i]);
@@ -193,29 +177,14 @@ contract SearchContract is Search {
         }
     }
 
-    function addSearchRequests(address[] searchRequestAddresses) onlySameOwner public {
-        searchRequests = searchRequestAddresses;
-
-        for (uint i = 0; i < searchRequests.length; i++) {
-            SearchRequest searchRequest = SearchRequest(searchRequests[i]);
-            address questionnaire = searchRequest.questionnaire();
-            requestsByQuestionnaires[questionnaire].push(searchRequest);
-        }
-    }
-
     function cloneContract(address newSearchContract) onlyOwner public {
         Search searchContract = Search(newSearchContract);
 
         searchContract.setBaseContract(baseContract);
-        searchContract.addSearchRequests(searchRequests);
-
-        for (uint i = 0; i < searchRequests.length; i++) {
-            SearchRequest(searchRequests[i]).transferOwnership(searchContract);
-        }
 
         address[] memory offers = new address[](baseContract.getOffersCount());
 
-        for(i = 0; i < offers.length; i++) {
+        for(uint i = 0; i < offers.length; i++) {
             offers[i] = baseContract.getOffer(i);
         }
 
