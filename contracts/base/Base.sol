@@ -4,7 +4,6 @@ import 'zeppelin-solidity/contracts/lifecycle/Pausable.sol';
 import 'zeppelin-solidity/contracts/lifecycle/Destructible.sol';
 import 'zeppelin-solidity/contracts/token/BasicToken.sol';
 import '../helpers/SameOwner.sol';
-import '../search/Search.sol';
 
 
 contract Base is SameOwner, Pausable, Destructible {
@@ -20,15 +19,11 @@ contract Base is SameOwner, Pausable, Destructible {
 
     BasicToken public tokenContract;
 
-    Search public searchContract;
-
     function Base(){
 
     }
 
     function setTokensContract(address tokenContractAddress) onlySameOwner whenNotPaused external;
-
-    function setSearchContract(address searchContractAddress) onlySameOwner whenNotPaused external;
 
     function getOffers() onlySameOwner constant external returns(address[]);
 
@@ -40,7 +35,14 @@ contract Base is SameOwner, Pausable, Destructible {
 
     function getQuestionnaires() external constant returns (address[]);
 
-    function transferClientRewards(address _offer, address searchRequest) whenNotPaused public;
+    function transferClientRewards(
+        address client,
+        address _offer,
+        uint256 reward
+    )
+    onlyOwner
+    whenNotPaused
+    public;
 
     function createOffer(address questionnaire) onlySameOwner whenNotPaused public;
 

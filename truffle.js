@@ -5,6 +5,7 @@ const Provider = require('./helpers/Provider');
 
 const ProviderMain = Provider.createMainNetwork("type here your private key from owner address");
 const ProviderRopsten = Provider.createRopstenNetwork("type here your private key from owner address");
+const ProviderRemoteRopsten = Provider.createRemoteRopstenNetwork("type here your private key from owner address");
 const ProviderTestRpc = Provider.createTestRpcNetwork("type here your private key from owner address");
 
 module.exports = new NetworkConfiguration();
@@ -14,6 +15,7 @@ function NetworkConfiguration() {
 
     networks[Provider.DEPLOY_MAIN_NETWORK_NAME] = ProviderMain.getNetwork();
     networks[Provider.DEPLOY_ROPSTEN_NETWORK_NAME] = ProviderRopsten.getNetwork();
+    networks[Provider.DEPLOY_REMOTE_ROPSTEN_NETWORK_NAME] = ProviderRemoteRopsten.getNetwork();
     networks[Provider.DEPLOY_TESTRPC_NETWORK_NAME] = ProviderTestRpc.getNetwork();
 
     networks['development'] = {

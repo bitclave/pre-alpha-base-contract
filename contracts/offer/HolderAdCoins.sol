@@ -19,10 +19,7 @@ contract HolderAdCoins is Ownable {
     }
 
     function transfer(address to, uint256 value) onlyOwner public returns (bool) {
-        tokenContract.transfer(to, value);
-        //fixme. need return result from CAToken. but uploaded contract not have result of operations.
-        // apply this when will be uploaded new contract with fix.
-        return true;
+        return tokenContract.transfer(to, value);
     }
 
     function refund(uint256 value) public {

@@ -5,9 +5,6 @@ import '../offer/HolderAdCoins.sol';
 import '../offer/Offer.sol';
 import '../offer/OfferContract.sol';
 import '../Questionnaire.sol';
-import '../search/Search.sol';
-import '../search/SearchContract.sol';
-import '../search/SearchRequest.sol';
 import '../helpers/Bytes32Utils.sol';
 import 'zeppelin-solidity/contracts/math/Math.sol';
 import 'zeppelin-solidity/contracts/math/SafeMath.sol';
@@ -32,12 +29,6 @@ contract BaseContract is Base {
         }
     }
 
-    function setSearchContract(address searchContractAddress) onlySameOwner whenNotPaused external {
-        require(Search(searchContractAddress).owner() == owner);
-
-        searchContract = Search(searchContractAddress);
-    }
-
     function getOffers() onlySameOwner constant external returns(address[]) {
         return offers;
     }
@@ -60,30 +51,17 @@ contract BaseContract is Base {
         return questionnaires;
     }
 
-    function transferClientRewards(address _offer, address searchRequest) whenNotPaused public {
-        require(searchRequest != address(0x0));
+    function transferClientRewards(address client, address _offer, uint256 reward) onlyOwner whenNotPaused public {
         require(_offer != address(0x0));
-
-        SearchRequest request = SearchRequest(searchRequest);
-        require(msg.sender == request.owner());
+        require(client != address(0x0));
 
         Offer offer = Offer(_offer);
 
-        uint256 reward = request.getRewardByOffer(_offer);
-
-        require(reward > 0);
         require(offer.holderCoins().getBalance() >= reward);
 
-        request.setRewardByOffer(_offer, 0x0);
+        offer.payReward(client, reward);
 
-        uint8 showedCount = request.getNumberOfViews(_offer);
-        if (showedCount < searchContract.MAX_COUNT_SHOWED_AD()) {
-            request.incrementNumberViewedOffer(_offer);
-        }
-
-        offer.payReward(msg.sender, reward);
-
-        ClientReward(_offer, msg.sender,  reward);
+        ClientReward(_offer, client,  reward);
     }
 
     function createOffer(address questionnaire) whenNotPaused public {
@@ -99,8 +77,6 @@ contract BaseContract is Base {
         mapAdvertiserOffers[msg.sender].push(address(offer));
 
         offers.push(address(offer));
-
-        searchContract.addOffer(address(offer));
 
         CreateOffer(msg.sender, address(offer));
     }
@@ -129,10 +105,7 @@ contract BaseContract is Base {
 
         baseContract.setOffers(offers);
 
-        searchContract.setBaseContract(address(baseContract));
-
         baseContract.setTokensContract(address(tokenContract));
-        baseContract.setSearchContract(address(searchContract));
     }
 
     function setQuestionnaires(address[] questionnaireContracts) onlySameOwner whenNotPaused public {

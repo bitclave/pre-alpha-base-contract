@@ -1,7 +1,6 @@
 const Gateway = artifacts.require("./Gateway.sol");
 const CAToken = artifacts.require("./CAToken.sol");
 const BaseContract = artifacts.require("./BaseContract.sol");
-const SearchContract = artifacts.require("./SearchContract.sol");
 const Provider = require('../helpers/Provider');
 
 module.exports = function (deployer, network) {
@@ -12,7 +11,6 @@ module.exports = function (deployer, network) {
     function Cortege() {
         this.gateway = null;
         this.base = null;
-        this.search = null;
         this.tokens = null;
         this.getNext = function () {
             return new Promise(function (resolve, reject) {
@@ -27,22 +25,13 @@ module.exports = function (deployer, network) {
             const cortege = new Cortege();
             cortege.gateway = gateway;
             return cortege.getNext();
-        })
-
+        });
     }).then(function (cortege) {
         return BaseContract.new().then(function (baseContract) {
             console.log('BaseContract deployed');
             cortege.base = baseContract;
             return cortege.getNext();
         });
-
-    }).then(function (cortege) {
-        return SearchContract.new(cortege.base.address).then(function (searchContract) {
-            console.log('SearchContract deployed');
-            cortege.search = searchContract;
-            return cortege.getNext();
-        });
-
     }).then(function (cortege) {
         return CAToken.new().then(function (tokens) {
             console.log('CAToken deployed');
@@ -53,23 +42,17 @@ module.exports = function (deployer, network) {
         return cortege.gateway.setBaseContract(cortege.base.address).then(function () {
             console.log('gateway.setBaseContract successful');
             return cortege.getNext();
-        })
+        });
     }).then(function (cortege) {
         return cortege.base.setTokensContract(cortege.tokens.address).then(function () {
             console.log('base.setTokensContract successful');
             return cortege.getNext();
-        })
-    }).then(function (cortege) {
-        return cortege.base.setSearchContract(cortege.search.address).then(function () {
-            console.log('base.setSearchContract successful');
-            return cortege.getNext();
-        })
+        });
     }).then(function (cortege) {
         return cortege.tokens.owner().then(function (ownerAddress) {
             console.log('OWNER', ownerAddress);
             console.log('GATEWAY CONTRACT:', cortege.gateway.address);
             console.log('BASE CONTRACT:', cortege.base.address);
-            console.log('SEARCH CONTRACT:', cortege.search.address);
             console.log('TOKENS CONTRACT:', cortege.tokens.address);
         });
     });

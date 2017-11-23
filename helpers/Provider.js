@@ -17,6 +17,7 @@ const FilterSubprovider = require('web3-provider-engine/subproviders/filters.js'
 const NETWORK_INFURA_MAIN = 'https://mainnet.infura.io/';
 const NETWORK_INFURA_ROPSTEN = 'https://ropsten.infura.io/';
 const NETWORK_TESTRPC = 'http://localhost:8545';
+const NETWORK_REMOTE_ROPSTEN = 'http://45.55.163.151:8545';
 const NETWORK_ID_MAIN = 1;
 const NETWORK_ID_ROPSTEN = 3;
 const NETWORK_ID_TESTRPC = '*';
@@ -24,11 +25,13 @@ const NETWORK_ID_TESTRPC = '*';
 Provider.DEPLOY_MAIN_NETWORK_NAME = 'mainnet';
 Provider.DEPLOY_ROPSTEN_NETWORK_NAME = 'ropsten';
 Provider.DEPLOY_TESTRPC_NETWORK_NAME = 'testrpc';
+Provider.DEPLOY_REMOTE_ROPSTEN_NETWORK_NAME = 'remoteRopsten';
 
 Provider.DEPLOY_NETWORK_NAMES_LIST = [
     Provider.DEPLOY_MAIN_NETWORK_NAME,
     Provider.DEPLOY_ROPSTEN_NETWORK_NAME,
-    Provider.DEPLOY_TESTRPC_NETWORK_NAME
+    Provider.DEPLOY_TESTRPC_NETWORK_NAME,
+    Provider.DEPLOY_REMOTE_ROPSTEN_NETWORK_NAME
 ];
 
 Provider.createMainNetwork = function (privateKey) {
@@ -38,6 +41,10 @@ Provider.createMainNetwork = function (privateKey) {
 
 Provider.createRopstenNetwork = function (privateKey) {
     return new Provider(new NetworkModel(NETWORK_ID_ROPSTEN), NETWORK_INFURA_ROPSTEN, privateKey);
+};
+
+Provider.createRemoteRopstenNetwork = function (privateKey) {
+    return new Provider(new NetworkModel(NETWORK_ID_ROPSTEN), NETWORK_REMOTE_ROPSTEN, privateKey);
 };
 
 Provider.createTestRpcNetwork = function (privateKey) {

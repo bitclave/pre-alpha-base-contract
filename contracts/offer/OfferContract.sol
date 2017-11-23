@@ -35,6 +35,8 @@ contract OfferContract is Offer {
         url = _url;
         shortDesc = _shortDesc;
         imageUrl = _imageUrl;
+
+        UpdateOffer(address(this));
     }
 
     function setRules(
@@ -59,12 +61,15 @@ contract OfferContract is Offer {
         userDataValues = _userDataValues;
         matchActions = _matchActions;
         mathRewardPercents = _mathRewardPercents;
+
+        UpdateOffer(address(this));
     }
 
     function setQuestionnaireAddress(address _questionnaireAddress) public {
         require(msg.sender == advertiser || msg.sender == owner);
 
         questionnaireAddress = _questionnaireAddress;
+        UpdateOffer(address(this));
     }
 
     function setTokensContract(address _tokensContract) onlyOwner public {

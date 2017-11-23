@@ -85,7 +85,6 @@ contract Questionnaire is Ownable {
             questionnaire[step].variantIds.push(id);
             questionnaire[step].variants[id] = titles[i];
         }
-
     }
 
     function addStep(string _title, bool _isMultiselect) onlyOwner external {
