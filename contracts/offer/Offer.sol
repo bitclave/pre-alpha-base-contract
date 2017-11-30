@@ -6,8 +6,6 @@ import 'zeppelin-solidity/contracts/ownership/Ownable.sol';
 
 contract Offer is Ownable {
 
-    event UpdateOffer(address indexed offeraddress);
-
     address public advertiser;
     address public questionnaireAddress;
     address public tokenContract;

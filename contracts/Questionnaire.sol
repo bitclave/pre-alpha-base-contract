@@ -15,9 +15,9 @@ contract Questionnaire is Ownable {
 
     struct QuestionnaireStep {
         string title;
-        uint[] variantIds;
+        uint256[] variantIds;
         bool isMultiselect;
-        mapping(uint => bytes32) variants;
+        mapping(uint256 => bytes32) variants;
     }
 
     bool public isActive;
@@ -50,17 +50,17 @@ contract Questionnaire is Ownable {
         return (questionnaire[step].title, questionnaire[step].isMultiselect);
     }
 
-    function getVariantsOfStep(uint8 step) external constant returns (bytes32[], uint[]) {
+    function getVariantsOfStep(uint8 step) external constant returns (bytes32[], uint256[]) {
         require(step < questionnaire.length && step >= 0);
 
         bytes32[] memory titles = new bytes32[](questionnaire[step].variantIds.length);
-        uint256[] memory ids = new uint[](questionnaire[step].variantIds.length);
-        uint id;
+        uint256[] memory ids = new uint256[](questionnaire[step].variantIds.length);
+        uint256 id;
 
         for(uint i = 0; i < questionnaire[step].variantIds.length; i++) {
             id = questionnaire[step].variantIds[i];
             titles[i] = bytes32(questionnaire[step].variants[id]);
-            ids[i] = uint(id);
+            ids[i] = uint256(id);
         }
 
         return (titles, ids);
@@ -70,7 +70,7 @@ contract Questionnaire is Ownable {
         require(questionnaire[step].variantIds.length == titles.length);
 
         for(uint i = 0; i < titles.length; i++) {
-            uint id = 1 << (questionnaire[step].variantIds.length + 1);
+            uint256 id = 1 * 2 ** (questionnaire[step].variantIds.length + 1);
             questionnaire[step].variants[id] = titles[i];
         }
     }
@@ -80,7 +80,7 @@ contract Questionnaire is Ownable {
         require(questionnaire[step].variantIds.length + 1 <= MAX_VARIANT_COUNT);
 
         for(uint i = 0; i < titles.length; i++) {
-            uint id = 1 << (questionnaire[step].variantIds.length + 1);
+            uint256 id = 1 * 2 ** (questionnaire[step].variantIds.length + 1);
 
             questionnaire[step].variantIds.push(id);
             questionnaire[step].variants[id] = titles[i];

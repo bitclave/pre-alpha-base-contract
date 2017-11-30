@@ -2,6 +2,7 @@ pragma solidity ^0.4.11;
 
 import 'zeppelin-solidity/contracts/token/BasicToken.sol';
 import "../offer/Offer.sol";
+import "../base/Base.sol";
 import '../Questionnaire.sol';
 
 
@@ -36,7 +37,7 @@ contract OfferContract is Offer {
         shortDesc = _shortDesc;
         imageUrl = _imageUrl;
 
-        UpdateOffer(address(this));
+        Base(owner).updateOfferEvent(address(this));
     }
 
     function setRules(
@@ -62,14 +63,14 @@ contract OfferContract is Offer {
         matchActions = _matchActions;
         mathRewardPercents = _mathRewardPercents;
 
-        UpdateOffer(address(this));
+        Base(owner).updateOfferEvent(address(this));
     }
 
     function setQuestionnaireAddress(address _questionnaireAddress) public {
         require(msg.sender == advertiser || msg.sender == owner);
 
         questionnaireAddress = _questionnaireAddress;
-        UpdateOffer(address(this));
+        Base(owner).updateOfferEvent(address(this));
     }
 
     function setTokensContract(address _tokensContract) onlyOwner public {

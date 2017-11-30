@@ -115,6 +115,7 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
         //step 1 - 14. where it's any selected variant (any of three) == (1 << 1) + (1 << 2) + (1 << 3 )
         // step 2 - 4 . second selected variant. (1 << 2);
         //step 3 - 12. two selected variant's. (one and three) (1 << 2) + (1 << 3);
+
         const steps = [14, 4, 12];
         await offer.setQuestionnaireSteps(steps);
         const stepsFromOffer = await offer.getQuestionnaireSteps();

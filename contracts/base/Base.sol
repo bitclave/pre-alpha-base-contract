@@ -10,6 +10,7 @@ contract Base is SameOwner, Pausable, Destructible {
 
     event ClientReward(address indexed _from, address indexed _to, uint256 _value);
     event CreateOffer(address indexed advertiser, address offer);
+    event UpdateOffer(address indexed offeraddress);
 
     address[] internal questionnaires;
 
@@ -45,6 +46,8 @@ contract Base is SameOwner, Pausable, Destructible {
     public;
 
     function createOffer(address questionnaire) onlySameOwner whenNotPaused public;
+
+    function updateOfferEvent(address offer) whenNotPaused public;
 
     function addQuestionnaire(address questionnaire) onlySameOwner whenNotPaused external;
 

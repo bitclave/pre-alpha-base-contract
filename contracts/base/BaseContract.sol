@@ -81,6 +81,11 @@ contract BaseContract is Base {
         CreateOffer(msg.sender, address(offer));
     }
 
+    function updateOfferEvent(address offer) whenNotPaused public {
+        require(msg.sender == offer);
+        UpdateOffer(offer);
+    }
+
     function addQuestionnaire(address questionnaire) onlySameOwner whenNotPaused external {
         require(questionnaire != address(0x0));
 

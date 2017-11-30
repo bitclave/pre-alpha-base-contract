@@ -15,8 +15,8 @@ contract('Questionnaire', function ([_, wallet]) {
     const steps = ['numbers of rooms?', 'How many times a week?', 'What time?'];
     const stepIsCheckbox = [false, false, true];
     const variants = [
-        ['one room', 'two room', 'three and more rooms'],
-        ['once', 'every monday', 'only on weekends'],
+        ['one room', 'two room', 'three and more rooms', 'variant4', 'variant5', 'variant6', 'variant7', "variant8", "variant9", "variant10", 'variant5', 'variant6', 'variant7', "variant8", "variant9", "variant10", 'variant5', 'variant6', 'variant7', "variant8", "variant9", "variant10", 'variant5', 'variant6', 'variant7', "variant8", "variant9", "variant10"],
+        ['once', 'every monday', 'only on weekends', 'variant4', 'variant5', 'variant6', 'variant7', "variant8"],
         ['morning at 8 - 10 am', 'at noon', 'evening'],
     ];
 
@@ -42,7 +42,7 @@ contract('Questionnaire', function ([_, wallet]) {
 
     it('add new variants', async function () {
         const variantsBytes32 = [];
-        for (let i = 0; i < variants.length; i++) {
+        for (let i = 0; i < steps.length; i++) {
             variantsBytes32.length = 0;
 
             for (let j = 0; j < variants[i].length; j++) {
@@ -50,11 +50,14 @@ contract('Questionnaire', function ([_, wallet]) {
             }
 
             await this.contract.addVariants(i, variantsBytes32);
+
             let resultList = await this.contract.getVariantsOfStep(i);
             let title;
-
+            let id;
             for (let j = 0; j < variants[i].length; j++) {
                 title = toAscii(resultList[0][j]);
+                id = resultList[1][j];
+                id.should.bignumber.equal(1 << (j + 1));
                 variants[i][j].should.be.equal(title);
             }
         }
