@@ -20,9 +20,9 @@ contract OfferContract is Offer {
         require(Questionnaire(_questionnaireAddress).getStepCount() > 0);
 
         advertiser = _advertiser;
-
+        questionnaireAddress = _questionnaireAddress;
         tokenContract = _tokenContract;
-        setQuestionnaireAddress(_questionnaireAddress);
+
         holderCoins = new HolderAdCoins(_tokenContract, _advertiser);
     }
 
@@ -128,7 +128,10 @@ contract OfferContract is Offer {
     }
 
     function setQuestionnaireSteps(uint32[] _questionnaireSteps) external {
+        require(msg.sender == advertiser || msg.sender == owner);
+
         questionnaireSteps = _questionnaireSteps;
+        Base(owner).updateOfferEvent(address(this));
     }
 
 }
