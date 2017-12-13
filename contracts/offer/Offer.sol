@@ -9,6 +9,7 @@ contract Offer is Ownable {
     address public advertiser;
     address public questionnaireAddress;
     address public tokenContract;
+    address public baseContract;
 
     uint32[] internal questionnaireSteps;
 
@@ -16,6 +17,10 @@ contract Offer is Ownable {
     string public url;
     string public shortDesc;
     string public imageUrl;
+
+    string public latitude;
+    string public longitude;
+    string public radius;
 
     uint256 public minReward;
     uint256 public maxReward;
@@ -25,6 +30,13 @@ contract Offer is Ownable {
     uint8[] public mathRewardPercents; // 0-100; percents for calculate rewards. (100 - this is max value of all items).
 
     function setOfferInfo(string _url, string _shortDesc, string _imageUrl) public;
+
+    function setGeo(
+        string _lat,
+        string _lng,
+        string _radius
+    )
+    public;
 
     function setRules(
         uint256 _minReward,
@@ -45,6 +57,12 @@ contract Offer is Ownable {
     function getOffer() external constant returns (address, string, string, string);
 
     function getClientDataKeysCount() external constant returns (uint);
+
+    function getGeo() external constant returns (
+        string, // lat
+        string, // lng
+        string // radius
+    );
 
     function getRules() external constant returns (
         uint256,

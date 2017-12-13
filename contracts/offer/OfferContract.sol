@@ -10,6 +10,7 @@ contract OfferContract is Offer {
 
     function OfferContract(
         address _advertiser,
+        address _baseContract,
         address _questionnaireAddress,
         address _tokenContract
     )
@@ -17,11 +18,13 @@ contract OfferContract is Offer {
         require(_advertiser != address(0x0));
         require(_questionnaireAddress != address(0x0));
         require(_tokenContract != address(0x0));
+        require(_baseContract != address(0x0));
         require(Questionnaire(_questionnaireAddress).getStepCount() > 0);
 
         advertiser = _advertiser;
         questionnaireAddress = _questionnaireAddress;
         tokenContract = _tokenContract;
+        baseContract = _baseContract;
 
         holderCoins = new HolderAdCoins(_tokenContract, _advertiser);
     }
@@ -37,7 +40,23 @@ contract OfferContract is Offer {
         shortDesc = _shortDesc;
         imageUrl = _imageUrl;
 
-        Base(owner).updateOfferEvent(address(this));
+        notifyUpdateOffer();
+    }
+
+    function setGeo(
+        string _lat,
+        string _lng,
+        string _radius
+    )
+        public
+    {
+        require(msg.sender == advertiser);
+
+        latitude = _lat;
+        longitude = _lng;
+        radius = _radius;
+
+        notifyUpdateOffer();
     }
 
     function setRules(
@@ -63,14 +82,20 @@ contract OfferContract is Offer {
         matchActions = _matchActions;
         mathRewardPercents = _mathRewardPercents;
 
-        Base(owner).updateOfferEvent(address(this));
+        notifyUpdateOffer();
     }
 
     function setQuestionnaireAddress(address _questionnaireAddress) public {
         require(msg.sender == advertiser || msg.sender == owner);
 
         questionnaireAddress = _questionnaireAddress;
-        Base(owner).updateOfferEvent(address(this));
+        notifyUpdateOffer();
+    }
+
+    function notifyUpdateOffer() private constant {
+        if (owner == baseContract) {
+            Base(owner).updateOfferEvent(address(this));
+        }
     }
 
     function setTokensContract(address _tokensContract) onlyOwner public {
@@ -88,6 +113,19 @@ contract OfferContract is Offer {
 
     function getClientDataKeysCount() external constant returns (uint) {
         return userDataKeys.length;
+    }
+
+    function getGeo() external constant returns (
+        string, // lat
+        string, // lng
+        string // radius
+    )
+    {
+        return (
+            latitude,
+            longitude,
+            radius
+        );
     }
 
     function getRules() external constant returns (
@@ -131,7 +169,7 @@ contract OfferContract is Offer {
         require(msg.sender == advertiser || msg.sender == owner);
 
         questionnaireSteps = _questionnaireSteps;
-        Base(owner).updateOfferEvent(address(this));
+        notifyUpdateOffer();
     }
 
 }

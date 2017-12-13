@@ -21,7 +21,7 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
 
     const catokenDecimals = new BigNumber(3);
     const catokenIncrease = new BigNumber(10).pow(catokenDecimals);
-    
+
     const groupName = 'cleaning';
     const steps = ['numbers of rooms?', 'How many times a week?', 'What time?'];
     const stepIsCheckbox = [false, false, true];
@@ -40,6 +40,10 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
         fromAscii('5000', 32),
         fromAscii('18', 32),
         fromAscii('russia', 32)];
+
+    const lat = '37.4211274197085';
+    const lng = '-122.0855988802915';
+    const radius = '100500';
 
     const offerMinReward = new BigNumber(100).mul(catokenIncrease);
     const offerMaxReward = new BigNumber(2000).mul(catokenIncrease);
@@ -95,7 +99,24 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
 
         const questionnaireAddress = Questionnaire.at(listOfQuestionnaire[0]).address;
 
-        await this.baseContract.createOffer(questionnaireAddress, {from: advertiserWallet});
+        const tokensAddress = await this.baseContract.tokenContract();
+        const createdOffer = await Offer.new(advertiserWallet, this.baseContract.address,
+            questionnaireAddress, tokensAddress, {from: advertiserWallet});
+
+        await this.baseContract.addOffer(createdOffer.address, {from: advertiserWallet})
+            .should
+            .be
+            .rejectedWith(EVMThrow);
+
+        await createdOffer.transferOwnership(this.baseContract.address, {from: advertiserWallet});
+
+        await this.baseContract.addOffer(createdOffer.address, {from: advertiserWallet});
+
+        await this.baseContract.addOffer(createdOffer.address, {from: advertiserWallet})
+            .should
+            .be
+            .rejectedWith(EVMThrow);
+
         const offers = await this.baseContract.getAdvertiserOffers({from: advertiserWallet});
 
         offers.length.should.be.equal(1);
@@ -117,7 +138,7 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
         //step 3 - 12. two selected variant's. (one and three) (1 << 2) + (1 << 3);
 
         const steps = [14, 4, 12];
-        await offer.setQuestionnaireSteps(steps);
+        await offer.setQuestionnaireSteps(steps, {from: advertiserWallet});
         const stepsFromOffer = await offer.getQuestionnaireSteps();
 
         assert.deepEqualNumber(stepsFromOffer, steps);
@@ -138,6 +159,8 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
             offerImageUrl,
             {from: advertiserWallet});
 
+        await offer.setGeo(lat, lng, radius, {from: advertiserWallet});
+
         await offer.setRules(
             offerMinReward,
             offerMaxReward,
@@ -153,6 +176,11 @@ contract('BaseContract', function ([_, advertiserWallet, firstClientWallet, seco
         updatedOffer[1].should.be.equal(offerUrl);
         updatedOffer[2].should.be.equal(offerDesc);
         updatedOffer[3].should.be.equal(offerImageUrl);
+
+        const updatedGeo = await offer.getGeo();
+        updatedGeo[0].should.be.equal(lat);
+        updatedGeo[1].should.be.equal(lng);
+        updatedGeo[2].should.be.equal(radius);
 
         const updatedRules = await offer.getRules();
         updatedRules.length.should.be.equal(6);

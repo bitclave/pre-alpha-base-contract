@@ -3,7 +3,6 @@ pragma solidity ^0.4.11;
 import '../base/Base.sol';
 import '../offer/HolderAdCoins.sol';
 import '../offer/Offer.sol';
-import '../offer/OfferContract.sol';
 import '../Questionnaire.sol';
 import '../helpers/Bytes32Utils.sol';
 import 'zeppelin-solidity/contracts/math/Math.sol';
@@ -64,21 +63,25 @@ contract BaseContract is Base {
         ClientReward(_offer, client,  reward);
     }
 
-    function createOffer(address questionnaire) whenNotPaused public {
-        require(questionnaire != address(0x0));
+    function addOffer(address offer) whenNotPaused public {
+        require(Offer(offer).owner() == address(this));
+        require(Offer(offer).tokenContract() == address(tokenContract));
+
+        Questionnaire questionnaire = Questionnaire(Offer(offer).questionnaireAddress());
         require(Questionnaire(questionnaire).getStepCount() > 0);
 
-        Offer offer = new OfferContract(
-            msg.sender,
-            questionnaire,
-            address(tokenContract)
-        );
+        for(uint i = 0; i < mapAdvertiserOffers[msg.sender].length; i++) {
+            require(mapAdvertiserOffers[msg.sender][i] != offer);
+        }
+
+        for(i = 0; i < offers.length; i++) {
+            require(offers[i] != address(offer));
+        }
 
         mapAdvertiserOffers[msg.sender].push(address(offer));
-
         offers.push(address(offer));
 
-        CreateOffer(msg.sender, address(offer));
+        AddOffer(msg.sender, address(offer));
     }
 
     function updateOfferEvent(address offer) whenNotPaused public {
